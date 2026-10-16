@@ -42,6 +42,7 @@ function applyMode() {
   const control = location.hash === '#sala';
   $('shop').hidden = control;
   $('control').hidden = !control;
+  if (control) refreshFeed();
 }
 window.addEventListener('hashchange', applyMode);
 
@@ -109,27 +110,42 @@ $('pay').addEventListener('click', async () => {
 });
 
 // ----- Live data -----
+let liveBusy = false;
+let feedBusy = false;
+const stale = { live: false, feed: false };
+function showStale() {
+  $('status').textContent = stale.live || stale.feed ? '· dati non disponibili' : '';
+}
+
 async function refreshLive() {
+  if (liveBusy) return;
+  liveBusy = true;
   try {
-    const response = await fetch('/api/live', { cache: 'no-store' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const d = await response.json();
-    const failing = d.failedLastMinute > d.ordersLastMinute;
-    $('ticker-orders').textContent = d.ordersLastMinute;
-    $('ticker-orders').className = failing ? 'bad' : 'ok';
-    $('ticker-revenue').textContent = eurWhole.format(d.revenueToday);
-    $('ticker-lost').textContent = eurWhole.format(d.lostToday);
-    $('orders').textContent = d.ordersLastMinute;
-    $('orders').className = 'tile-value ' + (failing ? 'bad' : 'ok');
-    $('failed').textContent = d.failedLastMinute;
-    $('revenue').textContent = eurWhole.format(d.revenueToday);
-    $('lost').textContent = eurWhole.format(d.lostToday);
-    $('version').textContent = d.version;
-    $('updated').textContent = clock.format(new Date());
-    $('status').textContent = '';
-  } catch {
-    // Keep the last numbers on screen; just say the data is stale.
-    $('status').textContent = '· dati non disponibili';
+    try {
+      const response = await fetch('/api/live', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const d = await response.json();
+      const failing = d.failedLastMinute > d.ordersLastMinute;
+      $('ticker-orders').textContent = d.ordersLastMinute;
+      $('ticker-orders').className = failing ? 'bad' : 'ok';
+      $('ticker-revenue').textContent = eurWhole.format(d.revenueToday);
+      $('ticker-lost').textContent = eurWhole.format(d.lostToday);
+      $('orders').textContent = d.ordersLastMinute;
+      $('orders').className = 'tile-value ' + (failing ? 'bad' : 'ok');
+      $('failed').textContent = d.failedLastMinute;
+      $('revenue').textContent = eurWhole.format(d.revenueToday);
+      $('lost').textContent = eurWhole.format(d.lostToday);
+      $('version').textContent = d.version;
+      $('updated').textContent = clock.format(new Date());
+      stale.live = false;
+      showStale();
+    } catch {
+      // Keep the last numbers on screen; just say the data is stale.
+      stale.live = true;
+      showStale();
+    }
+  } finally {
+    liveBusy = false;
   }
 }
 
@@ -138,19 +154,23 @@ const feedRows = [];
 
 async function refreshFeed() {
   if (location.hash !== '#sala') return;
+  if (feedBusy) return;
+  feedBusy = true;
   try {
-    const url = lastId === null ? '/api/orders/feed' : `/api/orders/feed?after=${lastId}`;
-    const response = await fetch(url, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const entries = await response.json();
-    for (const e of entries) {
-      feedRows.unshift(e);
-      lastId = e.id;
-    }
-    feedRows.splice(FEED_SIZE);
-    $('feed').innerHTML = feedRows.map((e) => {
-      const ok = e.status === 'Completed';
-      return `<li>
+    try {
+      const url = lastId === null ? '/api/orders/feed' : `/api/orders/feed?after=${lastId}`;
+      const response = await fetch(url, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const entries = await response.json();
+      for (const e of entries) {
+        if (lastId !== null && e.id <= lastId) continue;
+        feedRows.unshift(e);
+        lastId = e.id;
+      }
+      feedRows.splice(FEED_SIZE);
+      $('feed').innerHTML = feedRows.map((e) => {
+        const ok = e.status === 'Completed';
+        return `<li>
         <span class="dot ${ok ? 'ok' : 'bad'}"></span>
         <span>${clock.format(new Date(e.createdAt))}</span>
         <span>#${e.id}</span>
@@ -158,9 +178,15 @@ async function refreshFeed() {
         <span class="amount">${eurCents.format(e.amount)}</span>
         <span class="outcome ${ok ? 'ok' : 'bad'}">${ok ? 'completato' : 'pagamento non riuscito'}</span>
       </li>`;
-    }).join('');
-  } catch {
-    $('status').textContent = '· dati non disponibili';
+      }).join('');
+      stale.feed = false;
+      showStale();
+    } catch {
+      stale.feed = true;
+      showStale();
+    }
+  } finally {
+    feedBusy = false;
   }
 }
 

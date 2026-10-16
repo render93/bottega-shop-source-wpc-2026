@@ -53,6 +53,7 @@ body { margin: 0; }
 .feed .dot.bad { background: #f87171; }
 .feed .items { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .feed .amount { text-align: right; }
+.feed .outcome { white-space: nowrap; }
 .feed .outcome.ok, .feed .outcome.bad { font-weight: 600; }
 .control-footer { color: #888; font-size: 15px; }
 .status { color: #f87171; }
