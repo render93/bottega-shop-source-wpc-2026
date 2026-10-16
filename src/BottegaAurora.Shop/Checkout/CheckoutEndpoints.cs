@@ -23,6 +23,6 @@ public static class CheckoutEndpoints
             var result = checkout.Complete(cart);
             await gateway.AuthorizeAsync(result.Total, http.RequestAborted);
             var orderId = await orders.RecordCompletedAsync(result.Total, cart.Summary, cart.Promo?.Code);
-            return Results.Ok(new { orderId, total = result.Total, discount = result.Discount });
+            return Results.Ok(new { orderId, total = result.Total, discount = result.Discount, promo = result.PromoCode });
         });
 }

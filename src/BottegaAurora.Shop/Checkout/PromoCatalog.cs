@@ -1,15 +1,19 @@
 namespace BottegaAurora.Shop.Checkout;
 
+public sealed record PromoRule(string Code, decimal PercentOff)
+{
+    public decimal Apply(decimal subtotal) =>
+        Math.Round(subtotal * PercentOff / 100m, 2, MidpointRounding.AwayFromZero);
+}
+
 public sealed class PromoCatalog
 {
-    private static readonly Dictionary<string, decimal> PercentOff = new()
+    // Codes are matched case-insensitively: customers type "blackfriday" as often as "BLACKFRIDAY".
+    private static readonly Dictionary<string, PromoRule> Rules = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["AURORA10"] = 10m,
+        ["AURORA10"] = new("AURORA10", 10m),
+        ["BLACKFRIDAY"] = new("BLACKFRIDAY", 20m),
     };
 
-    // Discount in euros for the given code; unknown codes give no discount.
-    public decimal Resolve(string code, decimal subtotal) =>
-        PercentOff.TryGetValue(code, out var percent)
-            ? Math.Round(subtotal * percent / 100m, 2, MidpointRounding.AwayFromZero)
-            : 0m;
+    public PromoRule? Find(string code) => Rules.GetValueOrDefault(code);
 }

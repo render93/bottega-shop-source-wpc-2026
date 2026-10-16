@@ -14,7 +14,7 @@ public class ShopApiTests : IDisposable
 
     public void Dispose() => _factory.Dispose();
 
-    private sealed record CheckoutResponse(long? OrderId, decimal Total, decimal Discount);
+    private sealed record CheckoutResponse(long? OrderId, decimal Total, decimal Discount, string? Promo);
     private sealed record LiveResponse(string Version, int OrdersLastMinute, int FailedLastMinute, decimal RevenueToday, decimal LostToday);
 
     private Task<HttpResponseMessage> CheckoutAsync(object body) => _client.PostAsJsonAsync("/api/checkout", body);
@@ -29,6 +29,17 @@ public class ShopApiTests : IDisposable
         Assert.Equal(1, order!.OrderId);
         Assert.Equal(28.80m, order.Total);
         Assert.Equal(3.20m, order.Discount);
+    }
+
+    [Fact]
+    public async Task Checkout_WithBlackFriday_ReportsCanonicalCode()
+    {
+        var response = await CheckoutAsync(new { items = new[] { new { sku = "pandoro", qty = 1 } }, promo = "blackfriday" });
+
+        response.EnsureSuccessStatusCode();
+        var order = await response.Content.ReadFromJsonAsync<CheckoutResponse>();
+        Assert.Equal(19.20m, order!.Total);
+        Assert.Equal("BLACKFRIDAY", order.Promo);
     }
 
     [Fact]
