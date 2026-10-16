@@ -19,6 +19,12 @@ public sealed class CartFactory(ProductCatalog catalog)
         var lines = new List<CartLine>();
         foreach (var item in request.Items)
         {
+            if (item?.Sku is null)
+            {
+                error = "Each item needs a sku.";
+                return false;
+            }
+
             var product = catalog.Find(item.Sku);
             if (product is null)
             {

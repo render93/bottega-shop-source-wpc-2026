@@ -43,6 +43,13 @@ public class CartFactoryTests
         Assert.Contains("colomba", error);
     }
 
+    [Fact]
+    public void TryCreate_ItemWithoutSku_Fails()
+    {
+        Assert.False(_carts.TryCreate(new CheckoutRequest([new(null!, 1)], null), out _, out var error));
+        Assert.Equal("Each item needs a sku.", error);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(11)]
