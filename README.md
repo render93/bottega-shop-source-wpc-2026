@@ -39,3 +39,12 @@ Connect a repository to the Azure resources (after `scripts/deploy-infra.sh`) wi
     TEAMS_GROUP_ID=<team id> TEAMS_CHANNEL_ID=<channel id> AGENT_GITHUB_PAT=<token> scripts/deploy-agent.sh <owner>/<repo>
 
 `AGENT_GITHUB_PAT` is a fine-grained token limited to that repository (Contents, Pull requests, Issues: read and write). The script prints the remaining manual steps (onboarding and the Teams connector need an interactive sign-in).
+
+## Preparing a complete environment
+
+    scripts/destroy-infra.sh --yes                     # start from nothing
+    scripts/prepare-stage.sh <owner>/<copy>            # copy the repository, deploy everything (TEAMS_*, AGENT_GITHUB_PAT)
+    scripts/preflight.sh <owner>/<copy>                # read-only check, one line per item
+    scripts/start-traffic.sh / scripts/stop-traffic.sh
+
+`copy-repo.sh` deletes and recreates the copy: it needs the `delete_repo` scope (`gh auth refresh -h github.com -s delete_repo`).
