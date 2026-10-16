@@ -36,6 +36,6 @@ Connect a repository to the Azure resources (after `scripts/deploy-infra.sh`) wi
 
 `sre-agent/` holds the agent configuration (subagent, incident response plan, hook, tool permissions, knowledge) with placeholders for resource IDs. Create the agent after the infrastructure:
 
-    TEAMS_GROUP_ID=<team id> TEAMS_CHANNEL_ID=<channel id> scripts/deploy-agent.sh <owner>/<repo>
+    TEAMS_GROUP_ID=<team id> TEAMS_CHANNEL_ID=<channel id> AGENT_GITHUB_PAT=<token> scripts/deploy-agent.sh <owner>/<repo>
 
-The script prints the remaining manual steps (code repository access and the Teams connector need an interactive sign-in).
+`AGENT_GITHUB_PAT` is a fine-grained token limited to that repository (Contents, Pull requests, Issues: read and write). The script prints the remaining manual steps (onboarding and the Teams connector need an interactive sign-in).

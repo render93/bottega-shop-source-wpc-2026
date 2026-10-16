@@ -13,7 +13,3 @@ Errori o regressioni iniziati subito dopo uno swap di promozione, con prove che 
 3. Eseguire lo swap staging -> production.
 4. Verificare entro 5 minuti: errori 5xx a zero sul checkout, ordini al minuto tornati ai valori di prima.
 5. Comunicare l'esito al canale del reperibile e aprire una issue con la causa.
-
-## Non fare
-
-- Modificare la configurazione dello slot production per tamponare: ogni cambiamento passa da una PR e dalla pipeline.

@@ -15,4 +15,4 @@ spec:
   mergeEnabled: false
   azMonitorFilterSettings:
     targetResourceType: Microsoft.Web/sites
-    targetResource: {{WEB_APP_ID}}
+    targetResource: "{{WEB_APP_ID}}"

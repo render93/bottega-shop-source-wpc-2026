@@ -1,7 +1,7 @@
 {
-  "connectors": ["app-insights", "log-analytics"],
+  "connectors": [{ "name": "app-insights" }, { "name": "log-analytics" }],
   "subagents": ["checkout-incident-handler"],
   "hooks": ["production-change-guard"],
-  "responsePlans": ["checkout-critico"],
+  "responsePlans": [{ "name": "checkout-critico" }],
   "repos": ["shop"]
 }
