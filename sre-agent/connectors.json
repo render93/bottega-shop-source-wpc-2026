@@ -1,0 +1,14 @@
+{
+  "toggles": {
+    "enableAppInsightsConnector": true,
+    "appInsightsResourceId": "{{APP_INSIGHTS_ID}}",
+    "appInsightsAppId": "{{APP_INSIGHTS_APP_ID}}",
+    "enableLogAnalyticsConnector": true,
+    "lawResourceId": "{{LOG_ANALYTICS_ID}}",
+    "enableAzureMonitorConnector": false,
+    "azureMonitorLookbackDays": 7,
+    "grafanaUrl": "",
+    "grafanaApiKey": ""
+  },
+  "connectors": []
+}

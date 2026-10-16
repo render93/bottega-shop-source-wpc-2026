@@ -1,0 +1,19 @@
+metadata:
+  name: checkout-incident-handler
+spec:
+  instructions: subagents/checkout-incident-handler.instructions.md
+  handoffDescription: Gestisce gli incidenti sul checkout del negozio Bottega Aurora, dalla delimitazione dell'impatto alla proposta di mitigazione.
+  handoffs: []
+  # No UpdateAppSettings and no generic write tools: the only write is the slot swap.
+  tools:
+  - RunAzCliReadCommands
+  - QueryAppInsightsUsingAppId
+  - QueryLogAnalyticsByWorkspaceId
+  - GetAppSetting
+  - SearchMemory
+  - PerformDeploymentSwapForApp
+  # Teams managed connector (created in the portal: OAuth sign-in, post only).
+  - teams_teams_PostMessageToConversation
+  - teams_teams_ReplyWithMessageToConversation
+  agentType: Review
+  temperature: 0.2

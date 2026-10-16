@@ -1,0 +1,48 @@
+diff --git a/sreagent-templates/bicep/agent-core.bicep b/sreagent-templates/bicep/agent-core.bicep
+index 0ca6845..ae5dfba 100644
+--- a/sreagent-templates/bicep/agent-core.bicep
++++ b/sreagent-templates/bicep/agent-core.bicep
+@@ -54,6 +54,7 @@ param usePrivateDnsResolution bool = false
+ resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+   name: 'law-${suffix}'
+   location: location
++  tags: tags
+   properties: {
+     sku: { name: 'PerGB2018' }
+     retentionInDays: 30
+@@ -63,6 +64,7 @@ resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+ resource appInsights 'Microsoft.Insights/components@2020-02-02' = if (empty(existingAgentAppInsightsId)) {
+   name: 'ai-${suffix}'
+   location: location
++  tags: tags
+   kind: 'web'
+   properties: {
+     Application_Type: 'web'
+@@ -85,6 +87,7 @@ var effectiveAppInsightsConnStr = empty(existingAgentAppInsightsId) ? appInsight
+ resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' = if (empty(existingManagedIdentityId)) {
+   name: '${agentName}-id-${suffix}'
+   location: location
++  tags: tags
+   properties: { isolationScope: 'Regional' }
+ }
+ 
+@@ -124,6 +127,7 @@ resource monitoringReader 'Microsoft.Authorization/roleAssignments@2022-04-01' =
+ resource sreAgent 'Microsoft.App/agents@2025-05-01-preview' = {
+   name: agentName
+   location: location
++  tags: tags
+   identity: {
+     type: 'SystemAssigned, UserAssigned'
+     userAssignedIdentities: { '${effectiveIdentityId}': {} }
+diff --git a/sreagent-templates/bicep/main.bicep b/sreagent-templates/bicep/main.bicep
+index 1b6d9ec..f17910b 100644
+--- a/sreagent-templates/bicep/main.bicep
++++ b/sreagent-templates/bicep/main.bicep
+@@ -179,6 +179,7 @@ var suffix = uniqueString(subscriptionId, agentResourceGroupName, agentName)
+ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
+   name: agentResourceGroupName
+   location: location
++  tags: tags
+ }
+ 
+ module core './agent-core.bicep' = {

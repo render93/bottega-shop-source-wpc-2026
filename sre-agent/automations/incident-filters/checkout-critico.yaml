@@ -1,0 +1,18 @@
+metadata:
+  name: checkout-critico
+spec:
+  incidentPlatform: AzMonitor
+  isEnabled: true
+  priorities:
+  - Sev0
+  - Sev1
+  handlingAgent: checkout-incident-handler
+  agentMode: Review
+  maxAutomatedInvestigationAttempts: 1
+  # Only the shop's 5xx alert rule (infra/workload.bicep), not Smart Detection.
+  titleContains: alert-checkout-5xx
+  # Every alert starts a new thread instead of joining one from the last 3 hours.
+  mergeEnabled: false
+  azMonitorFilterSettings:
+    targetResourceType: Microsoft.Web/sites
+    targetResource: "{{WEB_APP_ID}}"

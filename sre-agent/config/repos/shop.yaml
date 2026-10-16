@@ -1,0 +1,5 @@
+name: shop
+spec:
+  url: https://github.com/{{GITHUB_REPO}}
+  branch: main
+  description: Codice del negozio Bottega Aurora (app, test, infrastruttura, workflow)
