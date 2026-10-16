@@ -84,13 +84,15 @@ echo "Aurora Agent Swap Operator -> $AGENT_PRINCIPAL on rg-aurora-prod"
 
 echo "== Tags on resources created by the platform (Smart Detection rules, action groups)"
 for rg in rg-aurora-prod "$AGENT_RG"; do
-  for id in $(az resource list -g "$rg" --query "[?tags.category==null].id" -o tsv); do
+  # IDs can contain spaces (e.g. "Failure Anomalies - ..."): read them line by line.
+  while IFS= read -r id; do
+    [[ -n "$id" ]] || continue
     if az tag update --resource-id "$id" --operation Merge --tags category=wpc-2026 -o none; then
       echo "tagged ${id##*/}"
     else
       echo "could not tag ${id##*/}"
     fi
-  done
+  done < <(az resource list -g "$rg" --query "[?tags.category==null].id" -o tsv)
 done
 
 cat <<MANUAL
