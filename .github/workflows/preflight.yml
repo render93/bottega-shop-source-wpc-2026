@@ -1,0 +1,46 @@
+name: Preflight
+
+# Read-only check: Azure login works and each slot serves the expected version.
+on:
+  workflow_dispatch:
+    inputs:
+      production:
+        description: Expected version in production
+        required: true
+      staging:
+        description: Expected version in staging
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      RESOURCE_GROUP: rg-aurora-prod
+      WEB_APP: ${{ vars.WEB_APP }}
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Slot versions
+        env:
+          EXPECTED_PRODUCTION: ${{ inputs.production }}
+          EXPECTED_STAGING: ${{ inputs.staging }}
+        run: |
+          failed=0
+          for slot in production staging; do
+            args=(); [[ "$slot" == production ]] || args=(--slot "$slot")
+            expected_var="EXPECTED_${slot^^}"
+            expected="${!expected_var}"
+            expected="${expected#v}"
+            host=$(az webapp show -g "$RESOURCE_GROUP" -n "$WEB_APP" "${args[@]}" --query defaultHostName -o tsv)
+            actual=$(curl -s -m 15 "https://$host/api/version" | jq -r .version || true)
+            if [[ "$actual" == "$expected" ]]; then result=OK; else result=FAIL; failed=1; fi
+            echo "- $result $slot: expected $expected, got $actual" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+          exit "$failed"
