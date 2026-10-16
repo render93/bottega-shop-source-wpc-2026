@@ -19,7 +19,7 @@ spec:
       if touches_settings and not on_staging:
           print(json.dumps({
               "decision": "block",
-              "reason": "production-change-guard: la configurazione dello slot production non si modifica dall'agente. Proponi la modifica a un umano o usa lo slot staging."
+              "reason": "production-change-guard: la configurazione dello slot production non si modifica dall'agente. Le modifiche passano da una pull request e dalla pipeline."
           }))
       else:
           print(json.dumps({"decision": "allow"}))

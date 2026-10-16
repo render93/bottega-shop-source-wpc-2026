@@ -33,7 +33,7 @@ jobs:
       group: production
       cancel-in-progress: false
     env:
-      RESOURCE_GROUP: rg-aurora-prod
+      RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
       WEB_APP: ${{ vars.WEB_APP }}
     steps:
       - uses: actions/checkout@v4

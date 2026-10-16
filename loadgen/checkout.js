@@ -1,6 +1,6 @@
 // Synthetic shoppers for Bottega Aurora: random carts of 1-3 products at a constant rate.
-// Env: TARGET_URL (required), RATE (requests/s, default 3), DURATION (k6 format, default 150m),
-// PROMO_SHARE (share of carts with a promo code, default 0.08).
+// Env: TARGET_URL (required), RATE (checkouts per TIME_UNIT, default 12), TIME_UNIT (k6 format,
+// default 1m), DURATION (k6 format, default 150m), PROMO_SHARE (share of carts with a promo code, default 0.08).
 import http from 'k6/http';
 
 const TARGET_URL = __ENV.TARGET_URL;
@@ -15,11 +15,12 @@ export const options = {
   scenarios: {
     shoppers: {
       executor: 'constant-arrival-rate',
-      rate: Number(__ENV.RATE || '3'),
-      timeUnit: '1s',
+      rate: Number(__ENV.RATE || '12'),
+      timeUnit: __ENV.TIME_UNIT || '1m',
       duration: __ENV.DURATION || '150m',
-      preAllocatedVUs: 20,
-      maxVUs: 100,
+      // A small shop: one checkout every few seconds needs only a handful of virtual users.
+      preAllocatedVUs: 5,
+      maxVUs: 20,
     },
   },
 };

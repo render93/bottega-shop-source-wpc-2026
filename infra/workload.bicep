@@ -186,7 +186,7 @@ resource checkout5xx 'Microsoft.Insights/metricAlerts@2018-03-01' = {
           metricName: 'Http5xx'
           timeAggregation: 'Total'
           operator: 'GreaterThan'
-          threshold: 5
+          threshold: 3
         }
       ]
     }

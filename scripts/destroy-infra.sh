@@ -1,11 +1,31 @@
 #!/usr/bin/env bash
-# Deletes the Bottega Aurora resource groups to stop the costs. Without --yes it only lists
-# what would be deleted. The custom agent role (free) is kept.
+# Deletes the resource groups of one environment (workload and agent) to stop the costs. The shared
+# rg-aurora-ops (deploy identity, load generator: no cost at rest) is kept unless --all is given.
+# Without --yes it only lists what would be deleted. The custom agent role (free) is always kept.
+# Usage: AURORA_ENV=<env> scripts/destroy-infra.sh [--yes] [--all]
 set -euo pipefail
 
-echo "Subscription: $(az account show --query name -o tsv)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/aurora-env.sh
+source "$ROOT/scripts/aurora-env.sh"
 
-RESOURCE_GROUPS=(rg-aurora-prod rg-aurora-ops rg-aurora-agent)
+CONFIRMED=false
+ALL=false
+for arg in "$@"; do
+  case "$arg" in
+    --yes) CONFIRMED=true ;;
+    --all) ALL=true ;;
+    *) echo "usage: AURORA_ENV=<env> destroy-infra.sh [--yes] [--all]"; exit 1 ;;
+  esac
+done
+
+echo "Subscription: $(az account show --query name -o tsv)"
+echo "Environment:  $AURORA_ENV"
+
+RESOURCE_GROUPS=("$WORKLOAD_RG" "$AGENT_RG")
+if [[ "$ALL" == true ]]; then
+  RESOURCE_GROUPS+=("$OPS_RG")
+fi
 
 existing=()
 for rg in "${RESOURCE_GROUPS[@]}"; do
@@ -17,13 +37,14 @@ for rg in "${RESOURCE_GROUPS[@]}"; do
     echo "== $rg: not found"
   fi
 done
+[[ "$ALL" == true ]] || echo "== $OPS_RG: kept (shared by all environments; --all deletes it too)"
 
 if [[ ${#existing[@]} -eq 0 ]]; then
   echo "Nothing to delete."
   exit 0
 fi
 
-if [[ "${1:-}" != "--yes" ]]; then
+if [[ "$CONFIRMED" != true ]]; then
   echo
   echo "Dry run. Run again with --yes to delete: ${existing[*]}"
   exit 0

@@ -12,7 +12,9 @@ if [[ "$SOURCE" == "$TARGET" ]]; then
 fi
 
 if gh repo view "$TARGET" >/dev/null 2>&1; then
-  if ! gh auth status 2>&1 | grep -q delete_repo; then
+  # Capture first: grep -q exiting early would make the pipeline fail under pipefail.
+  auth_status=$(gh auth status 2>&1 || true)
+  if ! grep -q delete_repo <<<"$auth_status"; then
     echo "$TARGET exists and gh cannot delete repositories: run gh auth refresh -h github.com -s delete_repo"
     exit 1
   fi
@@ -41,9 +43,11 @@ GIT_TERMINAL_PROMPT=0 git -C "$WORK/source.git" -c credential.helper= -c 'creden
 
 gh api -X PUT "repos/$TARGET/actions/permissions" -F enabled=true -f allowed_actions=all
 
-EXPECTED_WORKFLOWS=$(gh api "repos/$SOURCE/contents/.github/workflows" --jq length)
+EXPECTED_WORKFLOWS=$(gh api "repos/$SOURCE/contents/.github/workflows" --jq '[.[] | select(.name | test("\\.ya?ml$"))] | length')
 for attempt in $(seq 1 30); do
-  registered=$(gh api "repos/$TARGET/actions/workflows" --jq .total_count)
+  # Transient API errors count as "not yet".
+  registered=$(gh api "repos/$TARGET/actions/workflows" --jq .total_count 2>/dev/null) || registered=0
+  [[ "$registered" =~ ^[0-9]+$ ]] || registered=0
   [[ "$registered" -ge "$EXPECTED_WORKFLOWS" ]] && break
   if [[ "$attempt" -eq 30 ]]; then
     echo "Only $registered of $EXPECTED_WORKFLOWS workflows registered on $TARGET"
