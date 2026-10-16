@@ -4,7 +4,7 @@ Postmortem senza colpe. Stato: chiuso. Redatto dal team piattaforma il 2 dicembr
 
 ## Sintesi
 
-Venerdì 28 novembre 2025, dalle 02:14 alle 02:51, circa il 40% dei checkout è fallito con errore 500. Ordini persi stimati: 1.180 carrelli, circa 38.000 euro. La causa era la release 2.1.0 delle carte regalo, promossa in produzione con lo swap notturno degli slot.
+Venerdì 28 novembre 2025, dalle 02:14 alle 02:51, circa il 40% dei checkout è fallito con errore 500. Ordini persi stimati: circa 180 carrelli, circa 9.000 euro. La causa era la release 2.1.0 delle carte regalo, promossa in produzione con lo swap notturno degli slot.
 
 ## Cronologia (ora italiana)
 
