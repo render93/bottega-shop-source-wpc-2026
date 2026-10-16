@@ -21,6 +21,16 @@ public class CheckoutServiceTests
     }
 
     [Fact]
+    public void Complete_WithBlackFriday_TakesTwentyPercentOffAndReportsCode()
+    {
+        var result = _checkout.Complete(CartOf("pandoro", 1, "blackfriday"));
+
+        Assert.Equal(4.80m, result.Discount);
+        Assert.Equal(19.20m, result.Total);
+        Assert.Equal("BLACKFRIDAY", result.PromoCode);
+    }
+
+    [Fact]
     public void Complete_WithUnknownCode_ChargesFullPrice()
     {
         var result = _checkout.Complete(CartOf("torrone", 1, "SCONTO50"));

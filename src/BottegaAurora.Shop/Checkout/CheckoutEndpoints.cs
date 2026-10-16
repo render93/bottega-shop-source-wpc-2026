@@ -21,6 +21,6 @@ public static class CheckoutEndpoints
             http.Items[PricedCartKey] = cart;
             var result = checkout.Complete(cart);
             var orderId = await orders.RecordCompletedAsync(result.Total, cart.Summary, cart.Promo?.Code);
-            return Results.Ok(new { orderId, total = result.Total, discount = result.Discount });
+            return Results.Ok(new { orderId, total = result.Total, discount = result.Discount, promo = result.PromoCode });
         });
 }
