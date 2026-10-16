@@ -16,12 +16,12 @@ public class InMemoryOrderLogTests
         await _log.RecordCompletedAsync(10m, "Cantucci", null);
         _time.Advance(TimeSpan.FromMinutes(2));
         await _log.RecordCompletedAsync(20m, "Pandoro", null);
-        await _log.RecordFailedAsync(30m, "Panforte", null);
+        await _log.RecordFailedAsync(35m, "Panforte", null);
 
         var now = _time.GetUtcNow();
         var s = await _log.GetSummaryAsync(now.AddMinutes(-1), BusinessDay.StartOfToday(now));
 
-        Assert.Equal(new LiveSummary(1, 1, 30m, 30m), s);
+        Assert.Equal(new LiveSummary(1, 1, 30m, 35m), s);
     }
 
     [Fact]
