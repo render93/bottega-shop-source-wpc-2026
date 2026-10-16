@@ -44,8 +44,8 @@ public class SqlOrderLogTests
     {
         var log = await FreshLogAsync();
 
-        var id = await log.RecordCompletedAsync(43.20m, "Pandoro x2", "AURORA10");
-        await log.RecordFailedAsync(24.00m, "Pandoro", null);
+        var id = await log.RecordCompletedAsync(43.20m, "Pandoro x2", null);
+        await log.RecordFailedAsync(24.00m, "Pandoro", "AURORA10");
 
         var now = DateTimeOffset.UtcNow;
         var summary = await log.GetSummaryAsync(now.AddMinutes(-1), BusinessDay.StartOfToday(now));
@@ -59,7 +59,7 @@ public class SqlOrderLogTests
         Assert.Equal("Pandoro", Assert.Single(newer).Items);
     }
 
-    [SqlFact]
+    [Fact]
     public async Task Record_WhenDatabaseIsUnreachable_ReturnsNullInsteadOfThrowing()
     {
         var log = new SqlOrderLog("Server=127.0.0.1,1;Database=none;User Id=x;Password=y;Connect Timeout=1;Encrypt=false",
