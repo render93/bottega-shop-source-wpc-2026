@@ -11,8 +11,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GITHUB_REPO="${1:?usage: deploy-agent.sh <owner>/<repo>}"
 : "${TEAMS_GROUP_ID:?set TEAMS_GROUP_ID}" "${TEAMS_CHANNEL_ID:?set TEAMS_CHANNEL_ID}" "${AGENT_GITHUB_PAT:?set AGENT_GITHUB_PAT}"
-AGENT=aurora-agent
-AGENT_RG=rg-aurora-agent
+AGENT="aurora-agent"
+AGENT_RG="rg-aurora-agent"
 UPSTREAM_COMMIT=25a42306d298c4d28f11dd11ef9bb93cb0393be8
 PATCH="$ROOT/sre-agent/vendor/sreagent-templates.tags.patch"
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/bottega-aurora/sre-agent-$UPSTREAM_COMMIT-$(shasum "$PATCH" | cut -c1-12)"
