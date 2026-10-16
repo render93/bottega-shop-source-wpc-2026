@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bottega Aurora</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <section id="shop" class="shop">
+    <header class="shop-header">
+      <div class="brand">
+        <span class="brand-name">Bottega Aurora</span>
+        <span class="brand-tagline">Pasticceria artigianale</span>
+      </div>
+      <nav class="shop-actions">
+        <button id="cart-button" class="cart-button" type="button">Carrello <span id="cart-count" class="badge">0</span></button>
+        <a class="control-link" href="#sala">Sala di controllo</a>
+      </nav>
+    </header>
+    <div class="ticker" aria-live="polite">
+      <span><strong id="ticker-orders">-</strong> ordini/min</span>
+      <span>Incasso di oggi <strong id="ticker-revenue">-</strong></span>
+      <span>Persi oggi <strong id="ticker-lost" class="bad">-</strong></span>
+    </div>
+    <div class="banner">
+      <p class="banner-kicker">Black Friday</p>
+      <p class="banner-title">Venerdì 27 novembre, le feste iniziano da noi</p>
+    </div>
+    <main id="products" class="products"></main>
+    <aside id="cart" class="cart" hidden>
+      <h2>Il tuo carrello</h2>
+      <ul id="cart-lines" class="cart-lines"></ul>
+      <p class="cart-total">Totale <strong id="cart-total">0 €</strong></p>
+      <button id="pay" class="pay" type="button">Paga</button>
+      <p id="pay-result" class="pay-result" role="status"></p>
+      <button id="cart-close" class="cart-close" type="button">Chiudi</button>
+    </aside>
+  </section>
+
+  <section id="control" class="control" hidden>
+    <header class="control-header">
+      <span>Bottega Aurora · sala di controllo</span>
+      <a class="control-link" href="#">Torna alla vetrina</a>
+    </header>
+    <div class="tiles">
+      <div class="tile">
+        <p class="tile-label">Ordini nell'ultimo minuto</p>
+        <p id="orders" class="tile-value ok">-</p>
+        <p class="tile-sub">falliti: <span id="failed">-</span></p>
+      </div>
+      <div class="tile">
+        <p class="tile-label">Incasso di oggi</p>
+        <p id="revenue" class="tile-value">-</p>
+      </div>
+      <div class="tile">
+        <p class="tile-label">€ persi oggi</p>
+        <p id="lost" class="tile-value bad">-</p>
+      </div>
+    </div>
+    <ol id="feed" class="feed"></ol>
+    <footer class="control-footer">
+      Versione in produzione <strong id="version">-</strong> · aggiornato <span id="updated">-</span> <span id="status" class="status"></span>
+    </footer>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>

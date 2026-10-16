@@ -65,4 +65,12 @@ public class ShopApiTests : IDisposable
         Assert.Equal([2L, 3L], feed.Select(e => e.Id));
         Assert.All(feed, e => Assert.Equal("Cantucci", e.Items));
     }
+
+    [Fact]
+    public async Task Home_ServesStorefront()
+    {
+        var html = await _client.GetStringAsync("/");
+
+        Assert.Contains("Bottega Aurora", html);
+    }
 }

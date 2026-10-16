@@ -34,6 +34,12 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseMiddleware<FailedCheckoutRecorder>();
+app.UseDefaultFiles();
+// no-cache: after a swap the browser revalidates and picks up the new version's files.
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl = "no-cache",
+});
 
 app.MapGet("/api/version", () => new { version = AppVersion.Current });
 app.MapCatalog();
