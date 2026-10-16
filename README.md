@@ -55,6 +55,6 @@ The agent is created in `rg-aurora-agent-<env>` and watches `rg-aurora-prod-<env
     AURORA_ENV=<env> scripts/start-traffic.sh             # about 12 checkouts per minute
     scripts/stop-traffic.sh
 
-`prepare-stage.sh` refuses an environment name whose resource groups exist or that appears in the subscription's alert history of the last 30 days: use a name never used before. The Web App and the other resources keep the same names in every environment, so only one environment can exist at a time.
+Each environment name is single-use. `prepare-stage.sh` refuses a name that was already used (its subscription deployment `bottega-aurora-infra-<env>` exists, or its workload group appears in the alert history of the last 30 days): metrics and alert history of its resources would be visible to the agent. A failed preparation burns the name too: destroy it and use a new one. The Web App and the other resources keep the same names in every environment, so only one environment can exist at a time: `prepare-stage.sh` also refuses while any `rg-aurora-prod-*` or `rg-aurora-agent-*` group exists, or while a group is being deleted.
 
 `copy-repo.sh` deletes and recreates the copy: it needs the `delete_repo` scope (`gh auth refresh -h github.com -s delete_repo`).

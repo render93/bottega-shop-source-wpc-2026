@@ -2,7 +2,8 @@
 # Prepares a complete, clean environment for a rehearsal or for the stage, from nothing:
 # repository copy, Azure infrastructure, 2.3.1 in production and 2.4.0 in staging, SRE Agent.
 # The environment name must be new: metrics and alert history are tied to the resource IDs, and the
-# agent would read a previous run's incidents as its own. The shared rg-aurora-ops may exist.
+# agent would read a previous run's incidents as its own. One environment at a time: any other
+# environment must be destroyed first. The shared rg-aurora-ops may exist.
 # Usage:
 #   TEAMS_GROUP_ID=... TEAMS_CHANNEL_ID=... AGENT_GITHUB_PAT=... scripts/prepare-stage.sh <env> <target owner/repo>
 # <env>: 1-8 lowercase letters or digits. The source repository is this checkout's GitHub repository.
@@ -26,12 +27,26 @@ if [[ -n "$(git -C "$ROOT" status --porcelain)" || "$(git -C "$ROOT" rev-parse H
   echo "This checkout must be a clean copy of origin/main (git checkout main && git pull)"
   exit 1
 fi
-for rg in "$WORKLOAD_RG" "$AGENT_RG"; do
-  if [[ "$(az group exists -n "$rg")" == "true" ]]; then
-    echo "$rg already exists (or is being deleted): choose a new environment name"
+for rg in "$OPS_RG" "$WORKLOAD_RG" "$AGENT_RG"; do
+  if [[ "$(az group show -n "$rg" --query properties.provisioningState -o tsv 2>/dev/null || true)" == "Deleting" ]]; then
+    echo "$rg is being deleted: wait until the deletion completes (az group wait -n $rg --deleted)"
     exit 1
   fi
 done
+# One environment at a time: resource names inside the groups are the same in every environment.
+OTHER_ENVS=$(az group list --query "[?starts_with(name,'rg-aurora-prod-') || starts_with(name,'rg-aurora-agent-')].name" -o tsv)
+if [[ -n "$OTHER_ENVS" ]]; then
+  echo "Another environment exists: $(echo "$OTHER_ENVS" | tr '\n' ' ')"
+  echo "Remove it first: AURORA_ENV=<its env> scripts/destroy-infra.sh --yes"
+  exit 1
+fi
+NAME_USED="environment name already used: pick a new one (metrics and alert history of its resources would be visible to the agent)"
+# Deployment history outlives the 30-day alert window below.
+if az deployment sub show -n "bottega-aurora-infra-$AURORA_ENV" -o none 2>/dev/null; then
+  echo "$NAME_USED"
+  echo "(deployment bottega-aurora-infra-$AURORA_ENV exists in the subscription)"
+  exit 1
+fi
 # Alerts of the last 30 days (fired or resolved, all pages) whose rule lives in this environment's workload group.
 url="https://management.azure.com/subscriptions/$(az account show --query id -o tsv)/providers/Microsoft.AlertsManagement/alerts?api-version=2019-05-05-preview&timeRange=30d&pageCount=250"
 PAST_ALERTS=0
@@ -42,7 +57,8 @@ while [[ -n "$url" ]]; do
   url=$(jq -r '.nextLink // empty' <<<"$page")
 done
 if [[ "$PAST_ALERTS" -gt 0 ]]; then
-  echo "$WORKLOAD_RG has alert history ($PAST_ALERTS alerts in 30 days): the agent would inherit it. Choose a new environment name"
+  echo "$NAME_USED"
+  echo "($PAST_ALERTS alerts on $WORKLOAD_RG in the last 30 days)"
   exit 1
 fi
 
@@ -87,15 +103,22 @@ run_workflow() {
     exit 1
   fi
   # Poll the run status (gh run watch fails on a run whose jobs do not exist yet); API errors are retried.
-  for _ in $(seq 1 180); do
-    [[ "$status" == "completed" ]] && break
+  local deadline view_failed=false
+  deadline=$(( $(date +%s) + 1800 ))
+  while [[ "$status" != "completed" && "$(date +%s)" -lt "$deadline" ]]; do
     sleep 10
-    state=$(gh run view "$id" -R "$TARGET" --json status,conclusion --jq '.status + " " + .conclusion' 2>/dev/null) || continue
+    if ! state=$(gh run view "$id" -R "$TARGET" --json status,conclusion --jq '.status + " " + .conclusion' 2>/dev/null); then
+      if [[ "$view_failed" == false ]]; then
+        echo "gh run view $id failed: retrying every 10 s"
+        view_failed=true
+      fi
+      continue
+    fi
     status="${state%% *}"
     conclusion="${state#* }"
   done
   if [[ "$status" != "completed" ]]; then
-    echo "$workflow $* still ${status:-unknown} after 30 minutes: $(gh run view "$id" -R "$TARGET" --json url --jq .url 2>/dev/null || echo "run $id")"
+    echo "$workflow $* still ${status:-unknown} after about 30 minutes: $(gh run view "$id" -R "$TARGET" --json url --jq .url 2>/dev/null || echo "run $id")"
     exit 1
   fi
   if [[ "$conclusion" != "success" ]]; then
@@ -132,7 +155,8 @@ for attempt in $(seq 1 60); do
     break
   fi
   if [[ "$attempt" -eq 60 ]]; then
-    echo "The token still cannot write to $TARGET after 15 minutes: update its repository access and rerun deploy-agent.sh"
+    echo "The token still cannot write to $TARGET after 15 minutes: update its repository access and rerun:"
+    echo "   AURORA_ENV=$AURORA_ENV TEAMS_GROUP_ID=... TEAMS_CHANNEL_ID=... AGENT_GITHUB_PAT=... scripts/deploy-agent.sh $TARGET"
     exit 1
   fi
   [[ "$attempt" -eq 1 ]] && echo "Not yet: select $TARGET in the token's repository access on GitHub (checking every 15 s)"
