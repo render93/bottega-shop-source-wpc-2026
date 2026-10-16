@@ -1,0 +1,12 @@
+{
+  "deny": [
+    "RunAzCliWriteCommands(az webapp config appsettings *)",
+    "RunAzCliWriteCommands(az webapp config set *)",
+    "RunAzCliWriteCommands(az rest *)",
+    "RunAzCliWriteCommands(az resource *)",
+    "UpdateAppSettings",
+    "ConfigureAppSettingsForManagedIdentityStorage",
+    "UpdateWebsiteRunFromPackage",
+    "RepairRunFromPackageConfiguration"
+  ]
+}
