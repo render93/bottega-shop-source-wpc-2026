@@ -2,9 +2,11 @@ using BottegaAurora.Shop;
 using BottegaAurora.Shop.Catalog;
 using BottegaAurora.Shop.Checkout;
 using BottegaAurora.Shop.Orders;
+using BottegaAurora.Shop.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddShopTelemetry();
 builder.Services.AddProblemDetails();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ProductCatalog>();
