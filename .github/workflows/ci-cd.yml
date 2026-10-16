@@ -1,0 +1,56 @@
+name: CI/CD
+
+# Every change is built and tested. On main, the new version goes to the staging slot
+# and is swapped into production. Azure login is OIDC: the deploy identity trusts main only.
+on:
+  push:
+    branches: [main]
+    paths: ['src/**', 'tests/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Test
+        run: dotnet test --configuration Release
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    env:
+      RESOURCE_GROUP: rg-aurora-prod
+      WEB_APP: ${{ vars.WEB_APP }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Publish
+        run: |
+          dotnet publish src/BottegaAurora.Shop --configuration Release --output publish
+          (cd publish && zip -qr ../app.zip .)
+          echo "VERSION=$(dotnet msbuild src/BottegaAurora.Shop -getProperty:Version)" >> "$GITHUB_ENV"
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy to staging
+        run: scripts/ci/deploy-slot.sh staging app.zip "$VERSION"
+      - name: Swap staging into production
+        run: az webapp deployment slot swap -g "$RESOURCE_GROUP" -n "$WEB_APP" --slot staging --target-slot production

@@ -22,3 +22,12 @@ Prerequisites: Azure CLI logged in to the target subscription, `sqlcmd` (go-sqlc
     scripts/destroy-infra.sh --yes   # delete the resource groups
 
 The signed-in user becomes the Microsoft Entra admin of the SQL server; the app's managed identity only reads and writes rows.
+
+## Workflows
+
+- **CI/CD**: tests every pull request and every push that changes `src/` or `tests/`; on `main` it deploys to the staging slot and swaps it into production.
+- **Deploy version**: deploys a tag to one slot, without swapping.
+- **Promote to production** / **Emergency rollback**: swap staging and production.
+- **Preflight**: checks that each slot serves the expected version.
+
+Connect a repository to the Azure resources (after `scripts/deploy-infra.sh`) with `scripts/connect-repo.sh <owner>/<repo>`.

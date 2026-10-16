@@ -1,0 +1,34 @@
+name: Promote to production
+
+# Swaps the release candidate in the staging slot into production.
+on: workflow_dispatch
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  swap:
+    runs-on: ubuntu-latest
+    env:
+      RESOURCE_GROUP: rg-aurora-prod
+      WEB_APP: ${{ vars.WEB_APP }}
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Swap staging and production
+        run: az webapp deployment slot swap -g "$RESOURCE_GROUP" -n "$WEB_APP" --slot staging --target-slot production
+      - name: Versions after the swap
+        run: |
+          for slot in production staging; do
+            args=(); [[ "$slot" == production ]] || args=(--slot "$slot")
+            host=$(az webapp show -g "$RESOURCE_GROUP" -n "$WEB_APP" "${args[@]}" --query defaultHostName -o tsv)
+            echo "- $slot: $(curl -s -m 15 "https://$host/api/version")" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
