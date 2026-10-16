@@ -50,7 +50,8 @@ resource job 'Microsoft.App/jobs@2024-03-01' = {
           env: [
             { name: 'K6_SCRIPT', value: loadTextContent('../loadgen/checkout.js') }
             { name: 'TARGET_URL', value: targetUrl }
-            { name: 'RATE', value: '3' }
+            { name: 'RATE', value: '12' }
+            { name: 'TIME_UNIT', value: '1m' }
             { name: 'DURATION', value: '150m' }
             { name: 'PROMO_SHARE', value: '0.08' }
           ]
