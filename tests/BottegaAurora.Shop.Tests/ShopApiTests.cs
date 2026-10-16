@@ -37,5 +37,32 @@ public class ShopApiTests : IDisposable
         var response = await CheckoutAsync(new { items = new[] { new { sku = "colomba", qty = 1 } }, promo = "AURORA10" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty((await _client.GetFromJsonAsync<List<OrderEntry>>("/api/orders/feed"))!);
+    }
+
+    [Fact]
+    public async Task Live_AfterCheckout_CountsOrderAndRevenue()
+    {
+        await CheckoutAsync(new { items = new[] { new { sku = "pandoro", qty = 2 } }, promo = "AURORA10" });
+
+        var live = await _client.GetFromJsonAsync<LiveResponse>("/api/live");
+
+        Assert.Equal(AppVersion.Current, live!.Version);
+        Assert.Equal(1, live.OrdersLastMinute);
+        Assert.Equal(0, live.FailedLastMinute);
+        Assert.Equal(43.20m, live.RevenueToday);
+        Assert.Equal(0m, live.LostToday);
+    }
+
+    [Fact]
+    public async Task Feed_WithCursor_ReturnsOnlyNewOrders()
+    {
+        for (var i = 0; i < 3; i++)
+            await CheckoutAsync(new { items = new[] { new { sku = "cantucci", qty = 1 } }, promo = "AURORA10" });
+
+        var feed = (await _client.GetFromJsonAsync<List<OrderEntry>>("/api/orders/feed?after=1"))!;
+
+        Assert.Equal([2L, 3L], feed.Select(e => e.Id));
+        Assert.All(feed, e => Assert.Equal("Cantucci", e.Items));
     }
 }

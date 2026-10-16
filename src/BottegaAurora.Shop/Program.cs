@@ -19,6 +19,7 @@ app.UseMiddleware<FailedCheckoutRecorder>();
 app.MapGet("/api/version", () => new { version = AppVersion.Current });
 app.MapCatalog();
 app.MapCheckout();
+app.MapOrders();
 
 app.Run();
 
