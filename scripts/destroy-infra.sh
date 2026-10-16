@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Deletes the Bottega Aurora resource groups to stop the costs. Without --yes it only lists
-# what would be deleted. The custom agent role (free) and the agent's own resource group are kept.
+# what would be deleted. The custom agent role (free) is kept.
 set -euo pipefail
 
 echo "Subscription: $(az account show --query name -o tsv)"
 
-RESOURCE_GROUPS=(rg-aurora-prod rg-aurora-ops)
+RESOURCE_GROUPS=(rg-aurora-prod rg-aurora-ops rg-aurora-agent)
 
 existing=()
 for rg in "${RESOURCE_GROUPS[@]}"; do
