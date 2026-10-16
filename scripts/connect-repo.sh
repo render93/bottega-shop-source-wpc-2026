@@ -5,13 +5,10 @@
 set -euo pipefail
 
 REPO="${1:?usage: connect-repo.sh <owner>/<repo>}"
-OWNER="${REPO%/*}"
-NAME="${REPO#*/}"
-
-# GitHub OIDC subjects use immutable IDs: repo:<owner>@<ownerId>/<repo>@<repoId>:ref:...
-OWNER_ID=$(gh api "repos/$REPO" --jq .owner.id)
+echo "Subscription: $(az account show --query name -o tsv)"
+# Subject exactly as GitHub issues it for this repository (immutable IDs or not, canonical case).
+SUBJECT="$(gh api "repos/$REPO/actions/oidc/customization/sub" --jq .sub_claim_prefix):ref:refs/heads/main"
 REPO_ID=$(gh api "repos/$REPO" --jq .id)
-SUBJECT="repo:$OWNER@$OWNER_ID/$NAME@$REPO_ID:ref:refs/heads/main"
 
 az identity federated-credential create -g rg-aurora-ops --identity-name id-aurora-deploy \
   --name "github-$REPO_ID" \

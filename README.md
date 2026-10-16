@@ -25,7 +25,7 @@ The signed-in user becomes the Microsoft Entra admin of the SQL server; the app'
 
 ## Workflows
 
-- **CI/CD**: tests every pull request and push; on `main` it deploys to the staging slot and swaps it into production.
+- **CI/CD**: tests every pull request and every push that changes `src/` or `tests/`; on `main` it deploys to the staging slot and swaps it into production.
 - **Deploy version**: deploys a tag to one slot, without swapping.
 - **Promote to production** / **Emergency rollback**: swap staging and production.
 - **Preflight**: checks that each slot serves the expected version.

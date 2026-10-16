@@ -37,9 +37,10 @@ jobs:
             args=(); [[ "$slot" == production ]] || args=(--slot "$slot")
             expected_var="EXPECTED_${slot^^}"
             expected="${!expected_var}"
+            expected="${expected#v}"
             host=$(az webapp show -g "$RESOURCE_GROUP" -n "$WEB_APP" "${args[@]}" --query defaultHostName -o tsv)
             actual=$(curl -s -m 15 "https://$host/api/version" | jq -r .version || true)
             if [[ "$actual" == "$expected" ]]; then result=OK; else result=FAIL; failed=1; fi
-            echo "$result $slot: expected $expected, got $actual" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "- $result $slot: expected $expected, got $actual" | tee -a "$GITHUB_STEP_SUMMARY"
           done
           exit "$failed"

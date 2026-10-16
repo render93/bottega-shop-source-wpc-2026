@@ -30,5 +30,5 @@ jobs:
           for slot in production staging; do
             args=(); [[ "$slot" == production ]] || args=(--slot "$slot")
             host=$(az webapp show -g "$RESOURCE_GROUP" -n "$WEB_APP" "${args[@]}" --query defaultHostName -o tsv)
-            echo "$slot: $(curl -s -m 15 "https://$host/api/version")" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "- $slot: $(curl -s -m 15 "https://$host/api/version")" | tee -a "$GITHUB_STEP_SUMMARY"
           done
