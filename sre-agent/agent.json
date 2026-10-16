@@ -2,11 +2,11 @@
   "_scenario": "minimal",
   "identity": {
     "agentName": "aurora-agent",
-    "resourceGroup": "rg-aurora-agent",
+    "resourceGroup": "{{AGENT_RG}}",
     "subscription": "{{SUBSCRIPTION_ID}}",
     "location": "italynorth",
     "targetResourceGroups": [
-      "rg-aurora-prod"
+      "{{WORKLOAD_RG}}"
     ]
   },
   "access": {

@@ -1,8 +1,14 @@
 // Bottega Aurora infrastructure: workload, operations and the SRE Agent's custom role.
 // Deploy with scripts/deploy-infra.sh, remove with scripts/destroy-infra.sh.
+// rg-aurora-ops (deploy identity, load generator) is shared by all environments and kept between them.
 targetScope = 'subscription'
 
 param location string = 'italynorth'
+
+@description('Environment name: the workload and agent resource groups are rg-aurora-prod-<envName> and rg-aurora-agent-<envName>. Use a name never used before to start without metric and alert history.')
+@minLength(1)
+@maxLength(8)
+param envName string
 
 @description('Microsoft Entra admin of the SQL server: the user running the deployment.')
 param sqlAdminLogin string
@@ -17,7 +23,7 @@ param tags object = {
 var suffix = uniqueString(subscription().id)
 
 resource prodRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
-  name: 'rg-aurora-prod'
+  name: 'rg-aurora-prod-${envName}'
   location: location
   tags: tags
 }
@@ -61,13 +67,11 @@ module deployRole 'deploy-role.bicep' = {
 
 module agentRole 'agent-role.bicep' = {
   name: 'aurora-agent-role'
-  params: {
-    workloadResourceGroupId: prodRg.id
-  }
 }
 
 output workloadResourceGroup string = prodRg.name
 output opsResourceGroup string = opsRg.name
+output agentResourceGroup string = 'rg-aurora-agent-${envName}'
 output webAppName string = workload.outputs.webAppName
 output webAppUrl string = workload.outputs.webAppUrl
 output sqlServerName string = workload.outputs.sqlServerName

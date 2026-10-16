@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Deploys (or updates) the Bottega Aurora infrastructure and prepares the database.
+# Deploys (or updates) the Bottega Aurora infrastructure of one environment and prepares the database.
 # Idempotent: safe to run again. Requires az (logged in to the target subscription), sqlcmd
 # (go-sqlcmd: `brew install sqlcmd`), jq and curl.
+# Usage: AURORA_ENV=<env> scripts/deploy-infra.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/aurora-env.sh
+source "$ROOT/scripts/aurora-env.sh"
 LOCATION="${LOCATION:-italynorth}"
-DEPLOYMENT="bottega-aurora-infra"
+DEPLOYMENT="bottega-aurora-infra-$AURORA_ENV"
 
 for tool in az sqlcmd jq curl; do
   command -v "$tool" >/dev/null || { echo "Missing tool: $tool"; exit 1; }
@@ -17,13 +20,14 @@ ADMIN_LOGIN=$(az ad signed-in-user show --query "mail || userPrincipalName" -o t
 ADMIN_ID=$(az ad signed-in-user show --query id -o tsv)
 echo "$ADMIN_LOGIN"
 echo "Subscription: $(az account show --query name -o tsv)"
+echo "Environment:  $AURORA_ENV"
 
 echo "== Bicep deployment (takes several minutes)"
 OUTPUTS=$(az deployment sub create \
   --name "$DEPLOYMENT" \
   --location "$LOCATION" \
   --template-file "$ROOT/infra/main.bicep" \
-  --parameters location="$LOCATION" sqlAdminLogin="$ADMIN_LOGIN" sqlAdminObjectId="$ADMIN_ID" \
+  --parameters location="$LOCATION" envName="$AURORA_ENV" sqlAdminLogin="$ADMIN_LOGIN" sqlAdminObjectId="$ADMIN_ID" \
   --query properties.outputs -o json)
 out() { jq -er ".$1.value" <<<"$OUTPUTS"; }
 
@@ -74,8 +78,10 @@ done
 
 echo
 echo "== Done"
+echo "Environment:              $AURORA_ENV"
 echo "Workload resource group:  $RG"
-echo "Ops resource group:       $(out opsResourceGroup)"
+echo "Agent resource group:     $(out agentResourceGroup)  (created by scripts/deploy-agent.sh)"
+echo "Ops resource group:       $(out opsResourceGroup)  (shared by all environments)"
 echo "Web App:                  $(out webAppName)  ($(out webAppUrl))"
 echo "SQL server:               $SQL_FQDN"
 echo "Load generator job:       $(out loadgenJobName)"
