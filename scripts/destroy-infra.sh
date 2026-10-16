@@ -3,6 +3,8 @@
 # what would be deleted. The custom agent role (free) and the agent's own resource group are kept.
 set -euo pipefail
 
+echo "Subscription: $(az account show --query name -o tsv)"
+
 RESOURCE_GROUPS=(rg-aurora-prod rg-aurora-ops)
 
 existing=()
@@ -30,7 +32,8 @@ fi
 # Purge the Log Analytics workspace first: a plain resource group delete only soft-deletes it,
 # and the next deploy would recover it with the previous runs' telemetry.
 for rg in "${existing[@]}"; do
-  for ws in $(az monitor log-analytics workspace list -g "$rg" --query "[].name" -o tsv); do
+  workspaces=$(az monitor log-analytics workspace list -g "$rg" --query "[].name" -o tsv)
+  for ws in $workspaces; do
     echo "Purging Log Analytics workspace $ws..."
     az monitor log-analytics workspace delete -g "$rg" -n "$ws" --force true --yes
   done

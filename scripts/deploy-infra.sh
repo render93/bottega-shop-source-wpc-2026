@@ -13,7 +13,7 @@ for tool in az sqlcmd jq curl; do
 done
 
 echo "== Signed-in user (becomes the SQL Entra admin)"
-ADMIN_LOGIN=$(az ad signed-in-user show --query userPrincipalName -o tsv)
+ADMIN_LOGIN=$(az ad signed-in-user show --query "mail || userPrincipalName" -o tsv)
 ADMIN_ID=$(az ad signed-in-user show --query id -o tsv)
 echo "$ADMIN_LOGIN"
 echo "Subscription: $(az account show --query name -o tsv)"
@@ -25,7 +25,7 @@ OUTPUTS=$(az deployment sub create \
   --template-file "$ROOT/infra/main.bicep" \
   --parameters location="$LOCATION" sqlAdminLogin="$ADMIN_LOGIN" sqlAdminObjectId="$ADMIN_ID" \
   --query properties.outputs -o json)
-out() { jq -r ".$1.value" <<<"$OUTPUTS"; }
+out() { jq -er ".$1.value" <<<"$OUTPUTS"; }
 
 RG=$(out workloadResourceGroup)
 SQL_SERVER=$(out sqlServerName)
@@ -34,7 +34,8 @@ SHOP_ID=$(out shopIdentityName)
 SHOP_CLIENT_ID=$(out shopIdentityClientId)
 
 echo "== SQL firewall rule for this machine"
-MY_IP=$(curl -s https://api.ipify.org)
+MY_IP=$(curl -fsS --max-time 10 https://api.ipify.org)
+[[ -n "$MY_IP" ]] || { echo "Could not determine the public IP"; exit 1; }
 az sql server firewall-rule create -g "$RG" -s "$SQL_SERVER" -n deployer \
   --start-ip-address "$MY_IP" --end-ip-address "$MY_IP" -o none
 echo "deployer -> $MY_IP"
@@ -42,6 +43,17 @@ echo "deployer -> $MY_IP"
 sql() {
   sqlcmd -S "$SQL_FQDN" -d aurora --authentication-method ActiveDirectoryDefault -b "$@"
 }
+
+echo "== Waiting for the firewall rule to apply"
+for attempt in $(seq 1 18); do
+  if sql -Q "SELECT 1" >/dev/null 2>&1; then
+    break
+  fi
+  if [[ "$attempt" -eq 18 ]]; then
+    echo "SQL still unreachable after 3 minutes"; exit 1
+  fi
+  sleep 10
+done
 
 echo "== Database user for $SHOP_ID (read and write rows only)"
 # SID = the identity's client ID: no Microsoft Graph lookup needed.
