@@ -13,24 +13,64 @@ TARGET="${1:?usage: prepare-stage.sh <target owner/repo>}"
 SOURCE=$(cd "$ROOT" && gh repo view --json nameWithOwner --jq .nameWithOwner)
 START=$(date +%s)
 
+# Infrastructure and agent configuration come from this checkout, the copy from the remote main:
+# they must be the same commit.
+git -C "$ROOT" fetch -q origin main
+if [[ -n "$(git -C "$ROOT" status --porcelain)" || "$(git -C "$ROOT" rev-parse HEAD)" != "$(git -C "$ROOT" rev-parse origin/main)" ]]; then
+  echo "This checkout must be a clean copy of origin/main (git checkout main && git pull)"
+  exit 1
+fi
+for rg in rg-aurora-prod rg-aurora-ops rg-aurora-agent; do
+  if [[ "$(az group exists -n "$rg")" == "true" ]]; then
+    echo "$rg still exists (or is being deleted): run scripts/destroy-infra.sh --yes and wait"
+    exit 1
+  fi
+done
+
+# True when the token can write to the target: an empty label is rejected with 422 when the token
+# has access, 403 when it does not. Nothing is created. The header is passed on stdin, not in argv.
+pat_can_write() {
+  local code
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H @- -H 'Content-Type: application/json' -d '{}' \
+    "https://api.github.com/repos/$TARGET/labels" <<<"Authorization: Bearer $AGENT_GITHUB_PAT" || true)
+  [[ "$code" == "422" ]]
+}
+
 step() { echo; echo "== $(date -u +%H:%M:%S) $*"; }
 
 # Dispatches a workflow on the target repository and waits for that run to finish successfully.
 run_workflow() {
   local workflow="$1"; shift
-  local before id
-  before=$(gh run list -R "$TARGET" --workflow "$workflow" --limit 1 --json databaseId --jq '.[0].databaseId // 0')
-  for _ in $(seq 1 12); do
-    gh workflow run "$workflow" -R "$TARGET" "$@" && break
-    sleep 5   # right after the push GitHub may not list the workflow yet
+  local before out="" id=""
+  before=$(gh run list -R "$TARGET" --workflow "$workflow" --limit 1 --json databaseId --jq '.[0].databaseId // 0' 2>/dev/null || echo 0)
+  for _ in $(seq 1 24); do
+    out=$(gh workflow run "$workflow" -R "$TARGET" "$@" 2>&1) && break
+    out=""
+    sleep 5
   done
-  for _ in $(seq 1 30); do
-    id=$(gh run list -R "$TARGET" --workflow "$workflow" --limit 1 --json databaseId --jq '.[0].databaseId // 0')
-    [[ "$id" != "$before" && "$id" != "0" ]] && break
-    sleep 2
-  done
-  gh run watch "$id" -R "$TARGET" --exit-status >/dev/null
-  echo "$workflow $* -> $(gh run view "$id" -R "$TARGET" --json conclusion --jq .conclusion)"
+  if [[ -z "$out" ]]; then
+    echo "Could not dispatch $workflow on $TARGET"
+    exit 1
+  fi
+  # gh prints the URL of the created run when it can; otherwise wait for a new run to appear.
+  id=$(grep -oE 'actions/runs/[0-9]+' <<<"$out" | grep -oE '[0-9]+$' || true)
+  if [[ -z "$id" ]]; then
+    for _ in $(seq 1 30); do
+      id=$(gh run list -R "$TARGET" --workflow "$workflow" --limit 1 --json databaseId --jq '.[0].databaseId // 0' 2>/dev/null || echo 0)
+      [[ "$id" != "$before" && "$id" != "0" ]] && break
+      id=""
+      sleep 2
+    done
+  fi
+  if [[ -z "$id" ]]; then
+    echo "No run of $workflow appeared on $TARGET"
+    exit 1
+  fi
+  if ! gh run watch "$id" -R "$TARGET" --exit-status >/dev/null; then
+    echo "$workflow $* failed: $(gh run view "$id" -R "$TARGET" --json url --jq .url)"
+    exit 1
+  fi
+  echo "$workflow $* -> success"
 }
 
 step "1/6 Repository copy $SOURCE -> $TARGET"
@@ -53,8 +93,10 @@ run_workflow deploy-version.yml -f ref=v2.4.0 -f slot=staging
 
 step "5/6 Waiting until AGENT_GITHUB_PAT can open issues on $TARGET"
 for attempt in $(seq 1 60); do
-  perms=$(curl -s -H "Authorization: Bearer $AGENT_GITHUB_PAT" "https://api.github.com/repos/$TARGET" | jq -r '.permissions.push // false')
-  [[ "$perms" == "true" ]] && { echo "Token has write access to $TARGET"; break; }
+  if pat_can_write; then
+    echo "Token has write access to $TARGET"
+    break
+  fi
   if [[ "$attempt" -eq 60 ]]; then
     echo "The token still cannot write to $TARGET after 15 minutes: update its repository access and rerun deploy-agent.sh"
     exit 1

@@ -2,7 +2,7 @@
 # Stops every running execution of the k6 load generator.
 set -euo pipefail
 
-running=$(az containerapp job execution list -g rg-aurora-ops -n job-aurora-loadgen --query "[?properties.status=='Running'].name" -o tsv)
+running=$(az containerapp job execution list -g rg-aurora-ops -n job-aurora-loadgen --query "[?properties.status=='Running' || properties.status=='Processing'].name" -o tsv)
 if [[ -z "$running" ]]; then
   echo "No running executions."
   exit 0

@@ -13,7 +13,7 @@ api() { local out; out=$(gh api "$@" 2>/dev/null) && echo "$out"; }
 
 check() {
   local label="$1" expected="$2" actual="$3"
-  if [[ "$actual" == "$expected" ]]; then
+  if [[ -n "$actual" && "$actual" == "$expected" ]]; then
     echo "OK    $label: $actual"
   else
     echo "FAIL  $label: expected $expected, got ${actual:-nothing}"
@@ -52,20 +52,28 @@ TEMPLATES="${XDG_CACHE_HOME:-$HOME/.cache}/bottega-aurora/sre-agent-$UPSTREAM_CO
 if [[ -d "$TEMPLATES" ]]; then
   VERIFY=$(cd "$TEMPLATES" && SRE_AGENT_NO_TELEMETRY=1 ./bin/verify-agent.sh "$(az account show --query id -o tsv)" rg-aurora-agent aurora-agent --expected "$ROOT/sre-agent" 2>&1)
   check "agent configuration" "0 failed" "$(grep -oE '[0-9]+ failed' <<<"$VERIFY")"
-  check "Teams connector" teams "$(grep -E 'Managed connector names' <<<"$VERIFY" | grep -o teams)"
+  check "Teams connector" true "$(grep -E 'Managed connector names' <<<"$VERIFY" | grep -qi teams && echo true || echo false)"
 else
   check "agent templates in cache" present missing
 fi
 
 echo "== GitHub ($TARGET)"
-check "main identical to $SOURCE" "$(gh api "repos/$SOURCE/commits/main" --jq .sha)" "$(api "repos/$TARGET/commits/main" --jq .sha)"
+check "main identical to $SOURCE" "$(api "repos/$SOURCE/commits/main" --jq .sha)" "$(api "repos/$TARGET/commits/main" --jq .sha)"
 for tag in v2.3.1 v2.4.0; do
-  check "tag $tag" "$(gh api "repos/$SOURCE/git/ref/tags/$tag" --jq .object.sha)" "$(api "repos/$TARGET/git/ref/tags/$tag" --jq .object.sha)"
+  check "tag $tag" "$(api "repos/$SOURCE/git/ref/tags/$tag" --jq .object.sha)" "$(api "repos/$TARGET/git/ref/tags/$tag" --jq .object.sha)"
 done
 check "issues and pull requests" 0 "$(api "repos/$TARGET/issues?state=all&per_page=1" --jq length)"
 check "main requires pull requests (admins included)" true "$(api "repos/$TARGET/branches/main/protection" --jq '.enforce_admins.enabled and (.required_pull_request_reviews != null)')"
 check "Actions enabled" true "$(api "repos/$TARGET/actions/permissions" --jq .enabled)"
 check "repository variables" 4 "$(gh variable list -R "$TARGET" --json name --jq '[.[] | select(.name | IN("AZURE_CLIENT_ID","AZURE_TENANT_ID","AZURE_SUBSCRIPTION_ID","WEB_APP"))] | length' 2>/dev/null)"
+
+if [[ -n "${AGENT_GITHUB_PAT:-}" ]]; then
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H @- -H 'Content-Type: application/json' -d '{}' \
+    "https://api.github.com/repos/$TARGET/labels" <<<"Authorization: Bearer $AGENT_GITHUB_PAT")
+  check "agent token can write to $TARGET (422 = yes, 403 = no)" 422 "$code"
+else
+  echo "INFO  agent token not checked (AGENT_GITHUB_PAT not set)"
+fi
 
 echo
 if [[ "$FAILED" -eq 0 ]]; then echo "PREFLIGHT: all green"; else echo "PREFLIGHT: something is red"; fi
