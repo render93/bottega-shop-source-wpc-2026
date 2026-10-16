@@ -31,3 +31,11 @@ The signed-in user becomes the Microsoft Entra admin of the SQL server; the app'
 - **Preflight**: checks that each slot serves the expected version.
 
 Connect a repository to the Azure resources (after `scripts/deploy-infra.sh`) with `scripts/connect-repo.sh <owner>/<repo>`.
+
+## Azure SRE Agent
+
+`sre-agent/` holds the agent configuration (subagent, incident response plan, hook, tool permissions, knowledge) with placeholders for resource IDs. Create the agent after the infrastructure:
+
+    TEAMS_GROUP_ID=<team id> TEAMS_CHANNEL_ID=<channel id> AGENT_GITHUB_PAT=<token> scripts/deploy-agent.sh <owner>/<repo>
+
+`AGENT_GITHUB_PAT` is a fine-grained token limited to that repository (Contents, Pull requests, Issues: read and write). The script prints the remaining manual steps (onboarding and the Teams connector need an interactive sign-in).

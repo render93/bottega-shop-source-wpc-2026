@@ -1,0 +1,28 @@
+{
+  "_scenario": "minimal",
+  "identity": {
+    "agentName": "aurora-agent",
+    "resourceGroup": "rg-aurora-agent",
+    "subscription": "{{SUBSCRIPTION_ID}}",
+    "location": "italynorth",
+    "targetResourceGroups": [
+      "rg-aurora-prod"
+    ]
+  },
+  "access": {
+    "accessLevel": "Low",
+    "actionMode": "Review"
+  },
+  "upgradeChannel": "Preview",
+  "defaultModelProvider": "Anthropic",
+  "monthlyAgentUnitLimit": 10000,
+  "tags": {
+    "category": "wpc-2026"
+  },
+  "toggles": {
+    "enableWebhookBridge": false,
+    "webhookBridgeTriggerUrl": ""
+  },
+  "existingUamiId": "",
+  "existingAgentAppInsightsId": ""
+}

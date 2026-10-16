@@ -1,0 +1,26 @@
+metadata:
+  name: production-change-guard
+spec:
+  eventType: PreToolUse
+  hook:
+    type: command
+    matcher: ^(UpdateAppSettings|RunAzCliWriteCommands)$
+    failMode: block
+    timeout: 30
+    script: |
+      #!/usr/bin/env python3
+      # Blocks app setting changes on the production slot; staging stays allowed.
+      import json, sys
+      ctx = json.load(sys.stdin)
+      tool = ctx.get("tool_name", "")
+      args = json.dumps(ctx.get("tool_input", {})).lower()
+      touches_settings = tool == "UpdateAppSettings" or "appsettings" in args or "config set" in args
+      on_staging = "--slot staging" in args or "/slots/staging" in args
+      if touches_settings and not on_staging:
+          print(json.dumps({
+              "decision": "block",
+              "reason": "production-change-guard: la configurazione dello slot production non si modifica dall'agente. Proponi la modifica a un umano o usa lo slot staging."
+          }))
+      else:
+          print(json.dumps({"decision": "allow"}))
+  enabled: true
