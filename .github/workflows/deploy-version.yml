@@ -1,0 +1,52 @@
+name: Deploy version
+
+# Builds a tag (or any commit) and deploys it to one slot, without swapping.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag or commit to deploy
+        required: true
+      slot:
+        description: Target slot
+        required: true
+        type: choice
+        options: [staging, production]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      RESOURCE_GROUP: rg-aurora-prod
+      WEB_APP: ${{ vars.WEB_APP }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Publish
+        run: |
+          dotnet publish src/BottegaAurora.Shop --configuration Release --output publish
+          (cd publish && zip -qr ../app.zip .)
+          echo "VERSION=$(dotnet msbuild src/BottegaAurora.Shop -getProperty:Version)" >> "$GITHUB_ENV"
+      # The deploy script comes from main: older tags may not have it.
+      - uses: actions/checkout@v4
+        with:
+          path: tooling
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy
+        run: tooling/scripts/ci/deploy-slot.sh "${{ inputs.slot }}" app.zip "$VERSION"
