@@ -21,6 +21,6 @@ public interface IOrderLog
 
     Task<LiveSummary> GetSummaryAsync(DateTimeOffset minuteAgo, DateTimeOffset startOfToday);
 
-    /// <summary>Orders with Id greater than <paramref name="after"/> in ascending order, or the latest ones when null.</summary>
+    /// <summary>Orders with Id greater than <paramref name="after"/>, or the latest ones when null; always in ascending Id order.</summary>
     Task<IReadOnlyList<OrderEntry>> GetFeedAsync(long? after, int max);
 }
