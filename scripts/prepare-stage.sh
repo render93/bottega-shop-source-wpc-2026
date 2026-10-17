@@ -102,9 +102,11 @@ run_workflow() {
     echo "No run of $workflow appeared on $TARGET"
     exit 1
   fi
+  echo "Waiting for $workflow $*: https://github.com/$TARGET/actions/runs/$id"
   # Poll the run status (gh run watch fails on a run whose jobs do not exist yet); API errors are retried.
-  local deadline view_failed=false
-  deadline=$(( $(date +%s) + 1800 ))
+  local started deadline view_failed=false last_print=0 elapsed
+  started=$(date +%s)
+  deadline=$(( started + 1800 ))
   while [[ "$status" != "completed" && "$(date +%s)" -lt "$deadline" ]]; do
     sleep 10
     if ! state=$(gh run view "$id" -R "$TARGET" --json status,conclusion --jq '.status + " " + .conclusion' 2>/dev/null); then
@@ -116,6 +118,11 @@ run_workflow() {
     fi
     status="${state%% *}"
     conclusion="${state#* }"
+    elapsed=$(( $(date +%s) - started ))
+    if [[ "$status" != "completed" && $(( elapsed - last_print )) -ge 30 ]]; then
+      printf '  %s, %dm%02ds elapsed\n' "$status" $(( elapsed / 60 )) $(( elapsed % 60 ))
+      last_print=$elapsed
+    fi
   done
   if [[ "$status" != "completed" ]]; then
     echo "$workflow $* still ${status:-unknown} after about 30 minutes: $(gh run view "$id" -R "$TARGET" --json url --jq .url 2>/dev/null || echo "run $id")"
