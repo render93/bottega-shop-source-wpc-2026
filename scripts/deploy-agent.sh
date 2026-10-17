@@ -78,7 +78,11 @@ PY
 
 echo "== Agent deployment (two passes: on a new agent the response plan needs the subagent first)"
 # Only the dedicated token reaches the agent, never a GITHUB_PAT that happens to be in the shell.
+echo "== First pass"
 (cd "$TEMPLATES" && GITHUB_PAT="$AGENT_GITHUB_PAT" ./bin/deploy.sh "$CONFIG")
+echo
+echo "== Second pass: on a new agent a FAILED line on the response plan (incidentFilters) above is expected,"
+echo "   this pass creates it now that the subagent exists"
 (cd "$TEMPLATES" && GITHUB_PAT="$AGENT_GITHUB_PAT" ./bin/deploy.sh "$CONFIG" --force)
 
 echo "== Slot swap role for the agent identity"
