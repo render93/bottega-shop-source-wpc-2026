@@ -51,6 +51,7 @@ The agent is created in `rg-aurora-agent-<env>` and watches `rg-aurora-prod-<env
 
     AURORA_ENV=<old env> scripts/destroy-infra.sh --yes   # remove the previous environment
     scripts/prepare-stage.sh <env> <owner>/<copy>         # copy the repository, deploy everything (TEAMS_*, AGENT_GITHUB_PAT)
+    scripts/prepare-stage.sh --staging-ref v2.3.1 <env> <owner>/<copy>   # same, with 2.3.1 in both slots
     AURORA_ENV=<env> scripts/preflight.sh <owner>/<copy>  # read-only check, one line per item (needs AGENT_GITHUB_PAT)
     AURORA_ENV=<env> scripts/start-traffic.sh             # about 12 checkouts per minute
     scripts/stop-traffic.sh

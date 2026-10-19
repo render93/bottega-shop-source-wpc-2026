@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
 # Prepares a complete, clean environment for a rehearsal or for the stage, from nothing:
-# repository copy, Azure infrastructure, 2.3.1 in production and 2.4.0 in staging, SRE Agent.
+# repository copy, Azure infrastructure, 2.3.1 in production and <staging ref> in staging (default v2.4.0), SRE Agent.
 # The environment name must be new: metrics and alert history are tied to the resource IDs, and the
 # agent would read a previous run's incidents as its own. One environment at a time: any other
 # environment must be destroyed first. The shared rg-aurora-ops may exist.
 # Usage:
-#   TEAMS_GROUP_ID=... TEAMS_CHANNEL_ID=... AGENT_GITHUB_PAT=... scripts/prepare-stage.sh <env> <target owner/repo>
+#   TEAMS_GROUP_ID=... TEAMS_CHANNEL_ID=... AGENT_GITHUB_PAT=... scripts/prepare-stage.sh [--staging-ref <tag>] <env> <target owner/repo>
 # <env>: 1-8 lowercase letters or digits. The source repository is this checkout's GitHub repository.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-USAGE="usage: prepare-stage.sh <env> <target owner/repo>"
+USAGE="usage: prepare-stage.sh [--staging-ref <tag>] <env> <target owner/repo>"
+STAGING_REF=v2.4.0
+if [[ "${1:-}" == "--staging-ref" ]]; then
+  STAGING_REF="${2:?$USAGE}"
+  shift 2
+fi
 AURORA_ENV="${1:?$USAGE}"
 TARGET="${2:?$USAGE}"
 export AURORA_ENV
@@ -73,67 +78,8 @@ pat_can_write() {
 
 step() { echo; echo "== $(date -u +%H:%M:%S) $*"; }
 
-# Dispatches a workflow on the target repository and waits for that run to finish successfully.
-run_workflow() {
-  local workflow="$1"; shift
-  local before out="" id="" error="" status="" conclusion="" state
-  before=$(gh run list -R "$TARGET" --workflow "$workflow" --limit 1 --json databaseId --jq '.[0].databaseId // 0' 2>/dev/null || echo 0)
-  for _ in $(seq 1 24); do
-    out=$(gh workflow run "$workflow" -R "$TARGET" "$@" 2>&1) && break
-    error="$out"
-    out=""
-    sleep 5
-  done
-  if [[ -z "$out" ]]; then
-    echo "Could not dispatch $workflow on $TARGET: $error"
-    exit 1
-  fi
-  # gh prints the URL of the created run when it can; otherwise wait for a new run to appear.
-  id=$(grep -oE 'actions/runs/[0-9]+' <<<"$out" | grep -oE '[0-9]+$' || true)
-  if [[ -z "$id" ]]; then
-    for _ in $(seq 1 30); do
-      id=$(gh run list -R "$TARGET" --workflow "$workflow" --limit 1 --json databaseId --jq '.[0].databaseId // 0' 2>/dev/null || echo 0)
-      [[ "$id" != "$before" && "$id" != "0" ]] && break
-      id=""
-      sleep 2
-    done
-  fi
-  if [[ -z "$id" ]]; then
-    echo "No run of $workflow appeared on $TARGET"
-    exit 1
-  fi
-  echo "Waiting for $workflow $*: https://github.com/$TARGET/actions/runs/$id"
-  # Poll the run status (gh run watch fails on a run whose jobs do not exist yet); API errors are retried.
-  local started deadline view_failed=false last_print=0 elapsed
-  started=$(date +%s)
-  deadline=$(( started + 1800 ))
-  while [[ "$status" != "completed" && "$(date +%s)" -lt "$deadline" ]]; do
-    sleep 10
-    if ! state=$(gh run view "$id" -R "$TARGET" --json status,conclusion --jq '.status + " " + .conclusion' 2>/dev/null); then
-      if [[ "$view_failed" == false ]]; then
-        echo "gh run view $id failed: retrying every 10 s"
-        view_failed=true
-      fi
-      continue
-    fi
-    status="${state%% *}"
-    conclusion="${state#* }"
-    elapsed=$(( $(date +%s) - started ))
-    if [[ "$status" != "completed" && $(( elapsed - last_print )) -ge 30 ]]; then
-      printf '  %s, %dm%02ds elapsed\n' "$status" $(( elapsed / 60 )) $(( elapsed % 60 ))
-      last_print=$elapsed
-    fi
-  done
-  if [[ "$status" != "completed" ]]; then
-    echo "$workflow $* still ${status:-unknown} after about 30 minutes: $(gh run view "$id" -R "$TARGET" --json url --jq .url 2>/dev/null || echo "run $id")"
-    exit 1
-  fi
-  if [[ "$conclusion" != "success" ]]; then
-    echo "$workflow $* ended with ${conclusion:-no conclusion}: $(gh run view "$id" -R "$TARGET" --json url --jq .url 2>/dev/null || echo "run $id")"
-    exit 1
-  fi
-  echo "$workflow $* -> success"
-}
+# shellcheck source=scripts/lib/run-workflow.sh
+source "$ROOT/scripts/lib/run-workflow.sh"
 
 echo "Environment: $AURORA_ENV ($WORKLOAD_RG, agent in $AGENT_RG, shared $OPS_RG)"
 
@@ -151,9 +97,9 @@ step "2/6 Azure infrastructure"
 step "3/6 Connect $TARGET to Azure"
 "$ROOT/scripts/connect-repo.sh" "$TARGET"
 
-step "4/6 2.3.1 in production, 2.4.0 in staging"
+step "4/6 2.3.1 in production, $STAGING_REF in staging"
 run_workflow deploy-version.yml -f ref=v2.3.1 -f slot=production
-run_workflow deploy-version.yml -f ref=v2.4.0 -f slot=staging
+run_workflow deploy-version.yml -f ref="$STAGING_REF" -f slot=staging
 
 step "5/6 Waiting until AGENT_GITHUB_PAT can open issues on $TARGET"
 for attempt in $(seq 1 60); do
@@ -174,5 +120,9 @@ step "6/6 SRE Agent"
 "$ROOT/scripts/deploy-agent.sh" "$TARGET"
 
 echo
-echo "== Prepared in $(( ($(date +%s) - START) / 60 )) minutes. After the two manual steps above, run:"
-echo "   AURORA_ENV=$AURORA_ENV scripts/preflight.sh $TARGET"
+echo "== Prepared in $(( ($(date +%s) - START) / 60 )) minutes. Next:"
+echo "   1. the manual steps above (agent onboarding, Teams connector)"
+if [[ "$STAGING_REF" != "v2.4.0" ]]; then
+  echo "   2. staging runs $STAGING_REF: deploy v2.4.0 there (workflow \"Deploy version\") before the preflight, which expects it"
+fi
+echo "   then: AURORA_ENV=$AURORA_ENV scripts/preflight.sh $TARGET"
