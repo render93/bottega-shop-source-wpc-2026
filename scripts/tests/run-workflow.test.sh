@@ -11,6 +11,9 @@ FAILURES=0
 expect() { # <label> <needle> <haystack>
   if grep -qF -- "$2" <<<"$3"; then echo "ok   $1"; else echo "FAIL $1: missing '$2'"; echo "$3" | sed 's/^/     /'; FAILURES=1; fi
 }
+expect_absent() { # <label> <needle> <haystack>
+  if grep -qF -- "$2" <<<"$3"; then echo "FAIL $1: unexpected '$2'"; echo "$3" | sed 's/^/     /'; FAILURES=1; else echo "ok   $1"; fi
+}
 
 # Stubbed gh: the run is in progress for the first 8 views, then ends with $CONCLUSION.
 mkdir -p "$WORK/bin"
@@ -45,6 +48,9 @@ run_case() { # <conclusion>: runs run_workflow in a subshell, prints its output 
 out=$(run_case success)
 expect "announces what it waits for" "Waiting for deploy-version.yml -f ref=v2.3.1 -f slot=production: https://github.com/owner/repo/actions/runs/101" "$out"
 expect "prints progress" "in_progress, 0m30s elapsed" "$out"
+expect "prints progress again after 30 s" "in_progress, 1m00s elapsed" "$out"
+expect_absent "throttles progress (no 10 s line)" "0m10s elapsed" "$out"
+expect_absent "throttles progress (no 20 s line)" "0m20s elapsed" "$out"
 expect "reports success" "deploy-version.yml -f ref=v2.3.1 -f slot=production -> success" "$out"
 expect "exits 0 on success" "exit=0" "$out"
 
