@@ -123,6 +123,6 @@ echo
 echo "== Prepared in $(( ($(date +%s) - START) / 60 )) minutes. Next:"
 echo "   1. the manual steps above (agent onboarding, Teams connector)"
 if [[ "$STAGING_REF" != "v2.4.0" ]]; then
-  echo "   2. when ready, put v2.4.0 in staging (workflow \"Deploy version\" on $TARGET)"
+  echo "   2. staging runs $STAGING_REF: deploy v2.4.0 there (workflow \"Deploy version\") before the preflight, which expects it"
 fi
 echo "   then: AURORA_ENV=$AURORA_ENV scripts/preflight.sh $TARGET"
