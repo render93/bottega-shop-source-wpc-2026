@@ -1,0 +1,43 @@
+api_version: azuresre.ai/v2
+kind: ExtendedAgentTool
+metadata:
+  name: GetCheckoutBusinessImpact
+spec:
+  type: PythonFunctionTool
+  connector: ''
+  toolMode: Auto
+  description: |-
+    Business impact of the Bottega Aurora checkout, read from the shop's own order log: completed and
+    failed checkouts in the last minute, failure rate, revenue and lost revenue (value of carts that
+    could not be paid) since midnight Europe/Rome, and the version serving production. Use it to
+    quantify the business impact of a checkout incident in euros, and again after a mitigation to
+    confirm that orders are flowing.
+  functionCode: |-
+    import requests
+
+    SHOP_URL = "{{SHOP_URL}}"
+
+    def main() -> dict:
+        try:
+            response = requests.get(f"{SHOP_URL}/api/live", timeout=10)
+            response.raise_for_status()
+            live = response.json()
+        except Exception as e:
+            return {"success": False, "error": f"Shop order log unavailable: {e}"}
+        completed = live["ordersLastMinute"]
+        failed = live["failedLastMinute"]
+        attempts = completed + failed
+        return {
+            "success": True,
+            "productionVersion": live["version"],
+            "completedCheckoutsLastMinute": completed,
+            "failedCheckoutsLastMinute": failed,
+            "failureRateLastMinutePercent": round(100 * failed / attempts, 1) if attempts else 0.0,
+            "revenueTodayEur": live["revenueToday"],
+            "lostRevenueTodayEur": live["lostToday"],
+            "businessDay": "since midnight Europe/Rome",
+        }
+  timeoutSeconds: 60
+  dependencies:
+  - requests
+  parameters: []

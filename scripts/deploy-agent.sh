@@ -28,7 +28,7 @@ if [[ "$(az group exists -n "$WORKLOAD_RG")" != "true" ]]; then
   exit 1
 fi
 
-echo "== Upstream templates (microsoft/sre-agent @ ${UPSTREAM_COMMIT:0:7}, tags patch applied)"
+echo "== Upstream templates (microsoft/sre-agent @ ${UPSTREAM_COMMIT:0:7}, tags and tool type patch applied)"
 if [[ ! -d "$CACHE/sreagent-templates" ]]; then
   # Build in a temporary folder and move it into place only when complete.
   STAGING="$(mktemp -d)/sre-agent"
@@ -52,7 +52,8 @@ if [[ -z "$WEB_APP_ID" || -z "$APP_INSIGHTS_ID" || -z "$LOG_ANALYTICS_ID" ]]; th
   exit 1
 fi
 APP_INSIGHTS_APP_ID=$(az resource show --ids "$APP_INSIGHTS_ID" --query properties.AppId -o tsv)
-export SUBSCRIPTION_ID WEB_APP_ID APP_INSIGHTS_ID APP_INSIGHTS_APP_ID LOG_ANALYTICS_ID
+SHOP_URL="https://$(az webapp list -g "$WORKLOAD_RG" --query "[0].defaultHostName" -o tsv)"
+export SUBSCRIPTION_ID WEB_APP_ID APP_INSIGHTS_ID APP_INSIGHTS_APP_ID LOG_ANALYTICS_ID SHOP_URL
 
 CONFIG=$(mktemp -d)
 trap 'rm -rf "$CONFIG"' EXIT
@@ -63,7 +64,7 @@ import os, pathlib, re, sys
 
 names = ["SUBSCRIPTION_ID", "WEB_APP_ID", "APP_INSIGHTS_ID", "APP_INSIGHTS_APP_ID",
          "LOG_ANALYTICS_ID", "GITHUB_REPO", "TEAMS_GROUP_ID", "TEAMS_CHANNEL_ID",
-         "WORKLOAD_RG", "AGENT_RG"]
+         "WORKLOAD_RG", "AGENT_RG", "SHOP_URL"]
 for path in pathlib.Path(sys.argv[1]).rglob("*"):
     if not path.is_file():
         continue
@@ -79,7 +80,9 @@ PY
 echo "== Agent deployment (two passes: on a new agent the response plan needs the subagent first)"
 # Only the dedicated token reaches the agent, never a GITHUB_PAT that happens to be in the shell.
 echo "== First pass"
-(cd "$TEMPLATES" && GITHUB_PAT="$AGENT_GITHUB_PAT" ./bin/deploy.sh "$CONFIG")
+# --force on both passes: upstream change detection ignores tools, and its "no changes" path
+# calls a function that does not exist (exit 127) when the script is rerun on an existing agent.
+(cd "$TEMPLATES" && GITHUB_PAT="$AGENT_GITHUB_PAT" ./bin/deploy.sh "$CONFIG" --force)
 echo
 echo "== Second pass: on a new agent a FAILED line on the response plan (incidentFilters) above is expected,"
 echo "   this pass creates it now that the subagent exists"
@@ -90,6 +93,21 @@ AGENT_PRINCIPAL=$(az identity list -g "$AGENT_RG" --query "[0].principalId" -o t
 az role assignment create --assignee-object-id "$AGENT_PRINCIPAL" --assignee-principal-type ServicePrincipal \
   --role "Aurora Agent Swap Operator" --scope "$(az group show -n "$WORKLOAD_RG" --query id -o tsv)" -o none
 echo "Aurora Agent Swap Operator -> $AGENT_PRINCIPAL on $WORKLOAD_RG"
+
+echo "== Sandbox egress: the shop's order log for the GetCheckoutBusinessImpact tool"
+# New agents start in Limited egress mode: custom tools reach only the hosts on this list.
+AGENT_URL="https://management.azure.com$(az resource show -g "$AGENT_RG" -n "$AGENT" --resource-type Microsoft.App/agents --query id -o tsv)?api-version=2025-05-01-preview"
+SHOP_HOST="${SHOP_URL#https://}"
+EGRESS=$(az rest -m GET --url "$AGENT_URL" --query properties.sandboxConfiguration.egress -o json)
+if [[ "$(jq -r '.mode // "Unrestricted"' <<<"$EGRESS")" == "Unrestricted" ]]; then
+  echo "Egress is unrestricted: nothing to add"
+elif [[ "$(jq --arg h "$SHOP_HOST" '(.allowedHosts // []) | index($h) != null' <<<"$EGRESS")" == "true" ]]; then
+  echo "$SHOP_HOST already allowed"
+else
+  jq --arg h "$SHOP_HOST" '{properties: {sandboxConfiguration: {egress: (.allowedHosts = ((.allowedHosts // []) + [$h]))}}}' <<<"$EGRESS" >"$CONFIG/egress.json"
+  az rest -m PATCH --url "$AGENT_URL" --body @"$CONFIG/egress.json" -o none
+  echo "$SHOP_HOST added to the allowed hosts"
+fi
 
 echo "== Tags on resources created by the platform (Smart Detection rules, action groups)"
 for rg in "$WORKLOAD_RG" "$AGENT_RG"; do
