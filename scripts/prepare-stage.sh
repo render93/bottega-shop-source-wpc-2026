@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
 # Prepares a complete, clean environment for a rehearsal or for the stage, from nothing:
-# repository copy, Azure infrastructure, 2.3.1 in production and 2.4.0 in staging, SRE Agent.
+# repository copy, Azure infrastructure, 2.3.1 in production and <staging ref> in staging (default v2.4.0), SRE Agent.
 # The environment name must be new: metrics and alert history are tied to the resource IDs, and the
 # agent would read a previous run's incidents as its own. One environment at a time: any other
 # environment must be destroyed first. The shared rg-aurora-ops may exist.
 # Usage:
-#   TEAMS_GROUP_ID=... TEAMS_CHANNEL_ID=... AGENT_GITHUB_PAT=... scripts/prepare-stage.sh <env> <target owner/repo>
+#   TEAMS_GROUP_ID=... TEAMS_CHANNEL_ID=... AGENT_GITHUB_PAT=... scripts/prepare-stage.sh [--staging-ref <tag>] <env> <target owner/repo>
 # <env>: 1-8 lowercase letters or digits. The source repository is this checkout's GitHub repository.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-USAGE="usage: prepare-stage.sh <env> <target owner/repo>"
+USAGE="usage: prepare-stage.sh [--staging-ref <tag>] <env> <target owner/repo>"
+STAGING_REF=v2.4.0
+if [[ "${1:-}" == "--staging-ref" ]]; then
+  STAGING_REF="${2:?$USAGE}"
+  shift 2
+fi
 AURORA_ENV="${1:?$USAGE}"
 TARGET="${2:?$USAGE}"
 export AURORA_ENV
@@ -92,9 +97,9 @@ step "2/6 Azure infrastructure"
 step "3/6 Connect $TARGET to Azure"
 "$ROOT/scripts/connect-repo.sh" "$TARGET"
 
-step "4/6 2.3.1 in production, 2.4.0 in staging"
+step "4/6 2.3.1 in production, $STAGING_REF in staging"
 run_workflow deploy-version.yml -f ref=v2.3.1 -f slot=production
-run_workflow deploy-version.yml -f ref=v2.4.0 -f slot=staging
+run_workflow deploy-version.yml -f ref="$STAGING_REF" -f slot=staging
 
 step "5/6 Waiting until AGENT_GITHUB_PAT can open issues on $TARGET"
 for attempt in $(seq 1 60); do
@@ -115,5 +120,9 @@ step "6/6 SRE Agent"
 "$ROOT/scripts/deploy-agent.sh" "$TARGET"
 
 echo
-echo "== Prepared in $(( ($(date +%s) - START) / 60 )) minutes. After the two manual steps above, run:"
-echo "   AURORA_ENV=$AURORA_ENV scripts/preflight.sh $TARGET"
+echo "== Prepared in $(( ($(date +%s) - START) / 60 )) minutes. Next:"
+echo "   1. the manual steps above (agent onboarding, Teams connector)"
+if [[ "$STAGING_REF" != "v2.4.0" ]]; then
+  echo "   2. when ready, put v2.4.0 in staging (workflow \"Deploy version\" on $TARGET)"
+fi
+echo "   then: AURORA_ENV=$AURORA_ENV scripts/preflight.sh $TARGET"
