@@ -15,5 +15,9 @@ spec:
   # Teams managed connector (created in the portal: OAuth sign-in, post only).
   - teams_teams_PostMessageToConversation
   - teams_teams_ReplyWithMessageToConversation
+  # Skill with the custom tool GetCheckoutBusinessImpact: business impact from the shop's order log.
+  enableSkills: true
+  allowedSkills:
+  - checkout-business-impact
   agentType: Review
   temperature: 0.2

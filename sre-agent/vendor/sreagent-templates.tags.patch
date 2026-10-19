@@ -34,6 +34,28 @@ index 0ca6845..ae5dfba 100644
    identity: {
      type: 'SystemAssigned, UserAssigned'
      userAssignedIdentities: { '${effectiveIdentityId}': {} }
+diff --git a/sreagent-templates/bicep/apply-extras.sh b/sreagent-templates/bicep/apply-extras.sh
+index cd3a8ba..4a495f3 100755
+--- a/sreagent-templates/bicep/apply-extras.sh
++++ b/sreagent-templates/bicep/apply-extras.sh
+@@ -998,7 +998,7 @@ fi
+ 
+ # 4i-3. tools — data-plane PUT
+ # Route: PUT /api/v2/extendedAgent/tools/{name}
+-# Body: { name, type: "Tool", tags: [], properties: { ... tool spec } }
++# Body: { name, type: "ExtendedAgentTool", tags: [], properties: { ... tool spec } }
+ count=$(jq '.tools // [] | length' "$FILE")
+ if [[ "$count" -gt 0 ]]; then
+   if [[ "$DP_TOKEN_AVAILABLE" == "true" ]]; then
+@@ -1006,7 +1006,7 @@ if [[ "$count" -gt 0 ]]; then
+     for i in $(seq 0 $((count - 1))); do
+       name=$(jq -r --argjson i "$i" '.tools[$i].metadata.name' "$FILE")
+       props=$(jq -c --argjson i "$i" '.tools[$i].spec' "$FILE")
+-      dataplane_put_extended "tools" "$name" "Tool" "[]" "$props"
++      dataplane_put_extended "tools" "$name" "ExtendedAgentTool" "[]" "$props"
+     done
+   else
+     echo "tools: ${count} — ⚠ skipped (no data-plane token)"
 diff --git a/sreagent-templates/bicep/main.bicep b/sreagent-templates/bicep/main.bicep
 index 1b6d9ec..f17910b 100644
 --- a/sreagent-templates/bicep/main.bicep

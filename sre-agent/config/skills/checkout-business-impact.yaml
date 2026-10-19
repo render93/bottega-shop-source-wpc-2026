@@ -1,0 +1,8 @@
+metadata:
+  name: checkout-business-impact
+  description: "Use when a checkout incident needs its business impact: failed checkouts, failure rate and euros lost today, from the shop's order log. Also use after a mitigation to confirm that orders are flowing again."
+  spec:
+    tools:
+    - GetCheckoutBusinessImpact
+skillContent: skills/checkout-business-impact.md
+additionalFiles: []

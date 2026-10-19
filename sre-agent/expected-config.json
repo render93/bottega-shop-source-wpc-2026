@@ -4,5 +4,6 @@
   "subagents": ["checkout-incident-handler"],
   "hooks": ["production-change-guard"],
   "responsePlans": [{ "name": "checkout-critico" }],
-  "repos": ["shop"]
+  "repos": ["shop"],
+  "skills": ["checkout-business-impact"]
 }
