@@ -94,19 +94,28 @@ az role assignment create --assignee-object-id "$AGENT_PRINCIPAL" --assignee-pri
   --role "Aurora Agent Swap Operator" --scope "$(az group show -n "$WORKLOAD_RG" --query id -o tsv)" -o none
 echo "Aurora Agent Swap Operator -> $AGENT_PRINCIPAL on $WORKLOAD_RG"
 
-echo "== Sandbox egress: the shop's order log for the GetCheckoutBusinessImpact tool"
-# New agents start in Limited egress mode: custom tools reach only the hosts on this list.
+echo "== Sandbox egress: unrestricted"
+# New agents start in Limited egress mode, which blocks the shop's order log (GetCheckoutBusinessImpact)
+# and other hosts. The upstream templates send no sandbox configuration for Unrestricted, so it is set
+# after the deployment.
 AGENT_URL="https://management.azure.com$(az resource show -g "$AGENT_RG" -n "$AGENT" --resource-type Microsoft.App/agents --query id -o tsv)?api-version=2025-05-01-preview"
-SHOP_HOST="${SHOP_URL#https://}"
 EGRESS=$(az rest -m GET --url "$AGENT_URL" --query properties.sandboxConfiguration.egress -o json)
-if [[ "$(jq -r '.mode // "Unrestricted"' <<<"$EGRESS")" == "Unrestricted" ]]; then
-  echo "Egress is unrestricted: nothing to add"
-elif [[ "$(jq --arg h "$SHOP_HOST" '(.allowedHosts // []) | index($h) != null' <<<"$EGRESS")" == "true" ]]; then
-  echo "$SHOP_HOST already allowed"
+if [[ "$(jq -r '.mode // ""' <<<"$EGRESS")" == "Unrestricted" ]]; then
+  echo "Egress already unrestricted"
 else
-  jq --arg h "$SHOP_HOST" '{properties: {sandboxConfiguration: {egress: (.allowedHosts = ((.allowedHosts // []) + [$h]))}}}' <<<"$EGRESS" >"$CONFIG/egress.json"
+  jq '{properties: {sandboxConfiguration: {egress: ((. // {}) + {mode: "Unrestricted"})}}}' <<<"$EGRESS" >"$CONFIG/egress.json"
   az rest -m PATCH --url "$AGENT_URL" --body @"$CONFIG/egress.json" -o none
-  echo "$SHOP_HOST added to the allowed hosts"
+  for _ in $(seq 1 30); do
+    STATE=$(az rest -m GET --url "$AGENT_URL" --query properties.provisioningState -o tsv)
+    [[ "$STATE" != "InProgress" ]] || { sleep 10; continue; }
+    break
+  done
+  MODE=$(az rest -m GET --url "$AGENT_URL" --query properties.sandboxConfiguration.egress.mode -o tsv)
+  if [[ "$MODE" != "Unrestricted" ]]; then
+    echo "ERROR: sandbox egress mode is '$MODE' (provisioning state: $STATE), expected Unrestricted" >&2
+    exit 1
+  fi
+  echo "Egress set to Unrestricted"
 fi
 
 echo "== Tags on resources created by the platform (Smart Detection rules, action groups)"

@@ -6,6 +6,7 @@
 # environment must be destroyed first. The shared rg-aurora-ops may exist.
 # Usage:
 #   TEAMS_GROUP_ID=... TEAMS_CHANNEL_ID=... AGENT_GITHUB_PAT=... scripts/prepare-stage.sh [--staging-ref <tag>] <env> <target owner/repo>
+# <staging ref> must be one of the tags offered by the "Deploy version" workflow (v2.3.1, v2.4.0).
 # <env>: 1-8 lowercase letters or digits. The source repository is this checkout's GitHub repository.
 set -euo pipefail
 
