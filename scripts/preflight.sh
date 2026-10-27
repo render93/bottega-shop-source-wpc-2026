@@ -59,6 +59,15 @@ if [[ -d "$TEMPLATES" ]]; then
   VERIFY=$(cd "$TEMPLATES" && SRE_AGENT_NO_TELEMETRY=1 ./bin/verify-agent.sh "$(az account show --query id -o tsv)" "$AGENT_RG" aurora-agent --expected "$EXPECTED" 2>&1)
   check "agent configuration (Teams connector included)" "0 failed" "$(grep -oE '[0-9]+ failed' <<<"$VERIFY")"
   grep -E 'FAIL' <<<"$VERIFY" | sed 's/^/      /'
+  SUB=$(az account show --query id -o tsv)
+  ENDPOINT=$(az rest -m GET --url "https://management.azure.com/subscriptions/$SUB/resourceGroups/$AGENT_RG/providers/Microsoft.App/agents/aurora-agent?api-version=2025-05-01-preview" --query properties.agentEndpoint -o tsv 2>/dev/null)
+  TEAMS_OPS=""
+  if [[ -n "$ENDPOINT" ]]; then
+    TEAMS_OPS=$(curl -s -H @- "$ENDPOINT/api/v2/connectorV2/mcpservers" < <(printf 'Authorization: Bearer %s\n' "$(az account get-access-token --resource https://azuresre.dev --query accessToken -o tsv 2>/dev/null)") \
+      | jq -r '[.value[]? | select(.name=="teams") | .properties.connectors[]?.operations[]?.name] | map(select(.=="PostMessageToConversation" or .=="ReplyWithMessageToConversation" or .=="GetUnifiedActionSchema")) | unique | length' 2>/dev/null)
+  fi
+  if [[ "$TEAMS_OPS" == "3" ]]; then TEAMS_CAN_POST=yes; else TEAMS_CAN_POST=no; fi
+  check "Teams connector can post (post, reply and GetUnifiedActionSchema enabled)" yes "$TEAMS_CAN_POST"
 else
   check "agent templates in cache" present missing
 fi

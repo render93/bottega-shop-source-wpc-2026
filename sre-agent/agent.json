@@ -13,8 +13,8 @@
     "accessLevel": "Low",
     "actionMode": "Review"
   },
-  "upgradeChannel": "Preview",
-  "defaultModelProvider": "Anthropic",
+  "upgradeChannel": "Stable",
+  "defaultModelProvider": "MicrosoftFoundry",
   "monthlyAgentUnitLimit": 10000,
   "tags": {
     "category": "wpc-2026"
