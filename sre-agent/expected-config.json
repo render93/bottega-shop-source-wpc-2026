@@ -1,4 +1,5 @@
 {
+  "agent": { "upgradeChannel": "Stable", "defaultModelProvider": "MicrosoftFoundry" },
   "connectors": [{ "name": "app-insights" }, { "name": "log-analytics" }],
   "knowledgeSources": ["architecture-md", "pm-2025-11-checkout-md", "runbook-slot-rollback-md"],
   "subagents": ["checkout-incident-handler"],

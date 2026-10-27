@@ -12,9 +12,11 @@ spec:
   - GetAppSetting
   - SearchMemory
   - PerformDeploymentSwapForApp
-  # Teams managed connector (created in the portal: OAuth sign-in, post only).
+  # Teams managed connector (created in the portal, OAuth sign-in; enable the post, reply and get operations).
   - teams_teams_PostMessageToConversation
   - teams_teams_ReplyWithMessageToConversation
+  # Dynamic message fields of the Teams connector: without this operation the post tools only accept `location`.
+  - teams_teams_GetUnifiedActionSchema
   # Skill with the custom tool GetCheckoutBusinessImpact: business impact from the shop's order log.
   enableSkills: true
   allowedSkills:
