@@ -4,23 +4,26 @@ spec:
   instructions: subagents/checkout-incident-handler.instructions.md
   handoffDescription: Gestisce gli incidenti sul checkout del negozio Bottega Aurora, dalla delimitazione dell'impatto alla proposta di mitigazione.
   handoffs: []
-  # Writes go through RunAzCliWriteCommands, approved one by one (Review). The custom RBAC role only allows
-  # the slot swap on the Web App; tool-permissions.json and the PreToolUse hook block configuration changes.
+  # Writes go through RunAzCliWriteCommands, run without approval (the response plan is Autonomous). The custom
+  # RBAC role only allows the slot swap on the Web App; tool-permissions.json and the PreToolUse hook block
+  # configuration changes and pull request merges.
   tools:
   - RunAzCliReadCommands
   - QueryAppInsightsUsingAppId
   - QueryLogAnalyticsByWorkspaceId
   - GetAppSetting
   - RunAzCliWriteCommands
+  # Also listed as a tool: with only the skill, the model read /api/live from the terminal instead.
+  - GetCheckoutBusinessImpact
   - SearchMemory
   # Teams managed connector (created in the portal, OAuth sign-in; enable the post, reply and get operations).
   - teams_teams_PostMessageToConversation
   - teams_teams_ReplyWithMessageToConversation
-  # Dynamic message fields of the Teams connector: without this operation the post tools only accept `location`.
+  # Dynamic message fields of the Teams connector. The post tools still show only `poster` and `location`:
+  # the instructions spell out the `body` parameter.
   - teams_teams_GetUnifiedActionSchema
   # Skill with the custom tool GetCheckoutBusinessImpact: business impact from the shop's order log.
   enableSkills: true
   allowedSkills:
   - checkout-business-impact
-  agentType: Review
   temperature: 0.2

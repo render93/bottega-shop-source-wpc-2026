@@ -7,7 +7,9 @@ spec:
   - Sev0
   - Sev1
   handlingAgent: checkout-incident-handler
-  agentMode: Review
+  # Autonomous: the agent swaps the slots without waiting for an approval; RBAC, tool policy and hook still
+  # limit what it can do.
+  agentMode: Autonomous
   maxAutomatedInvestigationAttempts: 1
   # Only the shop's 5xx alert rule (infra/workload.bicep), not Smart Detection.
   titleContains: alert-checkout-5xx

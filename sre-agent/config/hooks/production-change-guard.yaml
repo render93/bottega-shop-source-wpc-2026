@@ -4,22 +4,28 @@ spec:
   eventType: PreToolUse
   hook:
     type: command
-    matcher: ^(UpdateAppSettings|RunAzCliWriteCommands)$
+    matcher: ^(UpdateAppSettings|RunAzCliWriteCommands|RunInTerminal|RunShellCommand|ExecutePythonCode)$
     failMode: block
     timeout: 30
     script: |
       #!/usr/bin/env python3
-      # Blocks app setting changes on the production slot; staging stays allowed.
-      import json, sys
+      # Blocks app setting changes on the production slot (staging stays allowed) and pull request merges.
+      import json, re, sys
       ctx = json.load(sys.stdin)
       tool = ctx.get("tool_name", "")
       args = json.dumps(ctx.get("tool_input", {})).lower()
       touches_settings = tool == "UpdateAppSettings" or "appsettings" in args or "config set" in args
       on_staging = "--slot staging" in args or "/slots/staging" in args
+      merges_pr = re.search(r"gh\s+pr\s+merge|pulls/[^\s\"']*/merge|merge_pull|enablepullrequestautomerge", args)
       if touches_settings and not on_staging:
           print(json.dumps({
               "decision": "block",
               "reason": "production-change-guard: la configurazione dello slot production non si modifica dall'agente. Le modifiche passano da una pull request e dalla pipeline."
+          }))
+      elif merges_pr:
+          print(json.dumps({
+              "decision": "block",
+              "reason": "production-change-guard: l'agente apre la pull request ma non la unisce. L'unione su main la decide una persona, dopo la revisione."
           }))
       else:
           print(json.dumps({"decision": "allow"}))
