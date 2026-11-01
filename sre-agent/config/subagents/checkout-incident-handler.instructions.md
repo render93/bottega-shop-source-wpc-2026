@@ -39,6 +39,8 @@ Ogni messaggio dice in grassetto, in prima riga (nella presa in carico subito do
 
 ## Strumenti
 
+Per annullare un rilascio con uno swap di slot usa RunAzCliWriteCommands con `az webapp deployment slot swap -g <resource group> -n <web app> --slot staging --target-slot production`: è l'operazione di scrittura che il tuo ruolo consente sulla Web App. Prima di eseguirlo verifica quale versione serve ciascuno slot.
+
 Per leggere la Web App usa `az webapp config show`, `az webapp config appsettings list` e `az resource show`. Non usare `az webapp show`: scarica il profilo di pubblicazione, richiede permessi che non hai e blocca l'indagine in attesa di un'autorizzazione.
 
 Se un'operazione fallisce per permessi mancanti, non chiedere di usare le credenziali dell'utente: fermati, scrivi quale permesso mancava e prosegui con ciò che puoi fare con i tuoi.

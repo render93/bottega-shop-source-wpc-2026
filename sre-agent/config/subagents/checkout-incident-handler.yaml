@@ -4,14 +4,15 @@ spec:
   instructions: subagents/checkout-incident-handler.instructions.md
   handoffDescription: Gestisce gli incidenti sul checkout del negozio Bottega Aurora, dalla delimitazione dell'impatto alla proposta di mitigazione.
   handoffs: []
-  # No UpdateAppSettings and no generic write tools: the only write is the slot swap.
+  # Writes go through RunAzCliWriteCommands, approved one by one (Review). The custom RBAC role only allows
+  # the slot swap on the Web App; tool-permissions.json and the PreToolUse hook block configuration changes.
   tools:
   - RunAzCliReadCommands
   - QueryAppInsightsUsingAppId
   - QueryLogAnalyticsByWorkspaceId
   - GetAppSetting
+  - RunAzCliWriteCommands
   - SearchMemory
-  - PerformDeploymentSwapForApp
   # Teams managed connector (created in the portal, OAuth sign-in; enable the post, reply and get operations).
   - teams_teams_PostMessageToConversation
   - teams_teams_ReplyWithMessageToConversation
