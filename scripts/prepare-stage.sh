@@ -40,9 +40,24 @@ for rg in "$OPS_RG" "$WORKLOAD_RG" "$AGENT_RG"; do
   fi
 done
 # One environment at a time: resource names inside the groups are the same in every environment.
-OTHER_ENVS=$(az group list --query "[?starts_with(name,'rg-aurora-prod-') || starts_with(name,'rg-aurora-agent-')].name" -o tsv)
+# A group that only holds resources Azure cannot delete (AURORA_IGNORED_RESOURCES: space-separated resource IDs,
+# from the private parameters, while a support ticket is open) does not count as an environment.
+IGNORED=" $(tr '[:upper:]' '[:lower:]' <<<"${AURORA_IGNORED_RESOURCES:-}") "
+OTHER_ENVS=""
+for rg in $(az group list --query "[?starts_with(name,'rg-aurora-prod-') || starts_with(name,'rg-aurora-agent-')].name" -o tsv); do
+  left=$(az resource list -g "$rg" --query "[].id" -o tsv | tr '[:upper:]' '[:lower:]')
+  only_ignored=$([[ -n "$left" ]] && echo true || echo false)
+  for id in $left; do
+    [[ "$IGNORED" == *" $id "* ]] || only_ignored=false
+  done
+  if [[ "$only_ignored" == true ]]; then
+    echo "Ignoring $rg: it only holds resources listed in AURORA_IGNORED_RESOURCES"
+    continue
+  fi
+  OTHER_ENVS+="$rg "
+done
 if [[ -n "$OTHER_ENVS" ]]; then
-  echo "Another environment exists: $(echo "$OTHER_ENVS" | tr '\n' ' ')"
+  echo "Another environment exists: $OTHER_ENVS"
   echo "Remove it first: AURORA_ENV=<its env> scripts/destroy-infra.sh --yes"
   exit 1
 fi

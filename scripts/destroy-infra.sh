@@ -50,7 +50,21 @@ if [[ "$CONFIRMED" != true ]]; then
   exit 0
 fi
 
-# Purge the Log Analytics workspace first: a plain resource group delete only soft-deletes it,
+# Delete the SRE Agent first and on its own: a resource group delete may remove its identity, workspace and
+# Application Insights before the agent, and on 01/11/2026 the agent deletion then failed and blocked the group.
+for rg in "${existing[@]}"; do
+  agents=$(az resource list -g "$rg" --resource-type Microsoft.App/agents --query "[].id" -o tsv)
+  for agent in $agents; do
+    echo "Deleting SRE Agent ${agent##*/} in $rg (a few minutes)..."
+    if ! az resource delete --ids "$agent" -o none; then
+      echo "FAILED: the SRE Agent could not be deleted, nothing else was touched."
+      echo "Retry later, or open a support ticket with the operation ID above for: $agent"
+      exit 1
+    fi
+  done
+done
+
+# Purge the Log Analytics workspace next: a plain resource group delete only soft-deletes it,
 # and the next deploy would recover it with the previous runs' telemetry.
 for rg in "${existing[@]}"; do
   workspaces=$(az monitor log-analytics workspace list -g "$rg" --query "[].name" -o tsv)
@@ -64,7 +78,25 @@ for rg in "${existing[@]}"; do
   echo "Deleting $rg..."
   az group delete -n "$rg" --yes --no-wait
 done
+# Wait for each group, saying what it is waiting for; a group that leaves the Deleting state while it still
+# exists means the deletion failed.
 for rg in "${existing[@]}"; do
-  az group wait -n "$rg" --deleted --timeout 3600
+  waited=0
+  while [[ "$(az group exists -n "$rg")" == "true" ]]; do
+    state=$(az group show -n "$rg" --query properties.provisioningState -o tsv 2>/dev/null || true)
+    if [[ -n "$state" && "$state" != "Deleting" ]]; then
+      echo "FAILED: deletion of $rg stopped (state $state). Resources left:"
+      az resource list -g "$rg" --query "[].{name:name, type:type}" -o table
+      echo "Activity log of the group: az monitor activity-log list -g $rg --offset 2h --status Failed -o table"
+      exit 1
+    fi
+    if (( waited >= 3600 )); then
+      echo "FAILED: $rg still deleting after 60 minutes"
+      exit 1
+    fi
+    (( waited % 120 == 0 )) && echo "  waiting for $rg to be deleted ($((waited / 60)) min)"
+    sleep 30
+    waited=$((waited + 30))
+  done
   echo "$rg deleted"
 done
